@@ -359,10 +359,9 @@ impl TranscriptionBackend for LasBackend {
                 .context("解析 LAS 查询响应失败")?;
 
             let task_status = poll_resp.metadata.task_status.as_deref().unwrap_or("UNKNOWN");
-            let business_code = poll_resp.metadata.business_code.as_deref().unwrap_or("?");
 
-            match (task_status, business_code) {
-                ("COMPLETED", _) | (_, "0") => {
+            match task_status {
+                "COMPLETED" => {
                     let elapsed = start.elapsed();
 
                     // 提取文本
@@ -391,7 +390,7 @@ impl TranscriptionBackend for LasBackend {
                         text,
                     });
                 }
-                ("PENDING", _) | ("RUNNING", _) | ("PROCESSING", _) => {
+                "PENDING" | "RUNNING" | "PROCESSING" => {
                     if tries % 12 == 1 {
                         let elapsed = start.elapsed();
                         println!(
@@ -403,7 +402,7 @@ impl TranscriptionBackend for LasBackend {
                     }
                     sleep(poll_interval).await;
                 }
-                ("FAILED", _) | ("TIMEOUT", _) => {
+                "FAILED" | "TIMEOUT" => {
                     let error_msg = poll_resp
                         .metadata
                         .error_msg
