@@ -60,7 +60,7 @@ use crate::types::*;
 struct Cli {
     // ---- 提供商选择 ----
     /// 语音转文本提供商：volcengine（默认）/ las / azure
-    #[arg(long, default_value = "volcengine", help = "提供商: volcengine | las | ark | azure")]
+    #[arg(long, default_value = "ark", help = "提供商: ark | las | volcengine | azure")]
     provider: String,
 
     // ---- 火山引擎认证 ----
@@ -572,7 +572,8 @@ async fn build_config(cli: Cli) -> Result<Config> {
         "azure" | "Azure" => Provider::Azure,
         "las" | "LAS" | "las_asr_pro" => Provider::Las,
         "ark" | "Ark" | "ARK" => Provider::Ark,
-        "volcengine" | "volc" | "" | _ => Provider::Volcengine,
+        "volcengine" | "volc" => Provider::Volcengine,
+        "" | _ => Provider::Ark,
     };
 
     // --- API Key ---
