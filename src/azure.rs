@@ -291,6 +291,7 @@ impl TranscriptionBackend for AzureBackend {
             id: job_id.to_string(),
             query_url: Some(self_url.to_string()),
             provider: Provider::Azure,
+            operator_version: None,
         })
     }
 

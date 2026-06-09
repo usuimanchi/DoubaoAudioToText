@@ -203,6 +203,7 @@ impl TranscriptionBackend for VolcengineBackend {
                 id: request_id,
                 query_url: None,
                 provider: Provider::Volcengine,
+                operator_version: None,
             }),
             Some(code) => Err(anyhow!(
                 "提交失败: 状态码={}, 消息={:?}",

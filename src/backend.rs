@@ -19,6 +19,8 @@ pub struct JobHandle {
     pub query_url: Option<String>,
     /// 提供商
     pub provider: crate::types::Provider,
+    /// LAS 算子的实际版本（提交成功后记录，供轮询使用）
+    pub operator_version: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
