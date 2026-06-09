@@ -30,6 +30,7 @@ mod backend;
 mod input;
 mod las;
 mod output;
+mod tos;
 mod types;
 mod volcengine;
 
@@ -81,6 +82,31 @@ struct Cli {
     /// 旧版控制台 Access Key
     #[arg(long, help = "旧版控制台 Access Key")]
     access_key: Option<String>,
+
+    // ---- TOS 对象存储（本地文件自动上传）----
+    /// TOS Access Key ID（环境变量: TOS_ACCESS_KEY）
+    #[arg(long, help = "TOS: Access Key ID")]
+    tos_ak: Option<String>,
+
+    /// TOS Secret Access Key（环境变量: TOS_SECRET_KEY）
+    #[arg(long, help = "TOS: Secret Access Key")]
+    tos_sk: Option<String>,
+
+    /// TOS 存储桶名称
+    #[arg(long, default_value = "amamizu-oss", help = "TOS: 存储桶名称")]
+    tos_bucket: String,
+
+    /// TOS 访问域名（不含 https://）
+    #[arg(long, default_value = "tos-cn-beijing.volces.com", help = "TOS: 域名")]
+    tos_endpoint: String,
+
+    /// TOS 区域
+    #[arg(long, default_value = "cn-beijing", help = "TOS: 区域")]
+    tos_region: String,
+
+    /// TOS 上传路径前缀（不含文件名），如 "las-audio/"
+    #[arg(long, help = "TOS: 上传路径前缀")]
+    tos_key_prefix: Option<String>,
 
     // ---- Azure 认证 ----
     /// Azure Speech 资源的订阅密钥（Ocp-Apim-Subscription-Key）
@@ -317,8 +343,49 @@ async fn run_pipeline<B: TranscriptionBackend>(
         let audio_input = input::resolve_input(input_str, &config.output_dir).await?;
 
         // 2) 准备音频（检查/转换/切分）
-        let prepared_chunks = audio::prepare_audio(&audio_input, config).await?;
+        let mut prepared_chunks = audio::prepare_audio(&audio_input, config).await?;
         total_prepared += prepared_chunks.len();
+
+        // 2.5) TOS 上传：本地文件自动上传到 TOS 获得 URL
+        if let Some(ref tos_ak) = config.tos_ak {
+            if !tos_ak.is_empty() {
+                let tos_uploader = tos::create_tos_uploader(
+                    tos_ak,
+                    config.tos_sk.as_deref().unwrap_or(""),
+                    &config.tos_region,
+                    &config.tos_endpoint,
+                    &config.tos_bucket,
+                );
+                match tos_uploader {
+                    Ok(uploader) => {
+                        let prefix = config.tos_key_prefix.as_deref().unwrap_or("");
+                        for chunk in &mut prepared_chunks {
+                            if chunk.submission_url.is_some() {
+                                continue; // 已有 URL，跳过
+                            }
+                            let file_name = chunk.path.file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("audio.bin");
+                            let remote_key = format!("{prefix}{file_name}");
+                            println!("   📤 上传到 TOS: {} → tos://{}/{}", file_name, config.tos_bucket, remote_key);
+                            match uploader.upload_file(&chunk.path, &remote_key).await {
+                                Ok(result) => {
+                                    // 优先使用 tos:// 内网 URL（LAS 和 bigmodel 都支持）
+                                    chunk.submission_url = Some(result.tos_url.clone());
+                                    println!("   │  ✅ TOS URL: {}", result.tos_url);
+                                }
+                                Err(e) => {
+                                    println!("   │  ⚠️  TOS 上传失败: {e}");
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        println!("   ⚠️  TOS 客户端初始化失败: {e}");
+                    }
+                }
+            }
+        }
 
         // 输出摘要
         println!("   ┌─ 准备就绪: {} 个片段", prepared_chunks.len());
@@ -348,8 +415,8 @@ async fn run_pipeline<B: TranscriptionBackend>(
                 println!("   💡 然后以新 URL 重新运行本程序。");
             } else {
                 println!("   ⚠️  该输入为本地文件，无可提交的 URL，跳过 API 提交。");
-                if !config.prepare_only {
-                    println!("   💡 提示：如需提交，请先将音频上传至可公网访问的服务器，再以 URL 形式提供。");
+                if config.tos_ak.as_ref().map(|s| s.is_empty()).unwrap_or(true) {
+                    println!("   💡 提示：配置 --tos-ak 和 --tos-sk 可自动上传到 TOS 并获取 URL。");
                 }
             }
         } else if config.prepare_only {
@@ -603,6 +670,12 @@ async fn build_config(cli: Cli) -> Result<Config> {
         legacy_mode: cli.legacy_mode,
         app_key: cli.app_key,
         access_key: cli.access_key,
+        tos_ak: cli.tos_ak,
+        tos_sk: cli.tos_sk,
+        tos_bucket: cli.tos_bucket,
+        tos_endpoint: cli.tos_endpoint,
+        tos_region: cli.tos_region,
+        tos_key_prefix: cli.tos_key_prefix,
         azure_key,
         azure_region,
         language,

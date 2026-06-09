@@ -1,0 +1,1239 @@
+	
+Endpoint （地域节点）
+S3 endpoint
+Bucket 域名
+外网访问
+tos-cn-beijing.volces.com
+tos-s3-cn-beijing.volces.com
+amamizu-oss.tos-cn-beijing.volces.com
+内网访问
+tos-cn-beijing.ivolces.com
+tos-s3-cn-beijing.ivolces.com
+amamizu-oss.tos-cn-beijing.ivolces.com
+
+---
+本文介绍了对象存储服务 TOS（Torch Object Storage） Rust SDK 在各种场景下的使用方法和示例代码。
+
+SDK 提供了针对桶、对象操作的示例代码，方便您参考使用。
+
+<span id="a2238102"></span>
+## SDK 概览
+
+
+|项目 |参考文档 |
+|---|---|
+|使用准备 |* [安装 Rust SDK](https://www.volcengine.com/docs/6349/2124723)<br><br>* [初始化客户端（Rust SDK）](https://www.volcengine.com/docs/6349/2124710)<br><br>* [快速入门（Rust SDK）](https://www.volcengine.com/docs/6349/2124650) |
+|预签名机制 |* [PreSignedURL（Rust SDK）](https://www.volcengine.com/docs/6349/2124729)<br><br>* [PreSignedPostSignature（Rust SDK）](https://www.volcengine.com/docs/6349/2124680) |
+
+
+
+
+---
+运行 TOS Rust SDK 前，您需要先安装 SDK，本文提供 SDK 的运行环境要求及多种安装方式。
+
+<span id="fd87e1de"></span>
+## 前提条件
+
+安装 SDK 前，您需要先搭建 Rust 开发环境。您可通过 [Rust 官网](https://rust-lang.org/tools/install/)介绍完成开发环境搭建。
+
+安装完成后，可使用 `cargo version` 命令，查看版本信息。
+
+<span id="30308d4c"></span>
+## SDK 下载地址
+
+
+* 最新源码地址：[源码地址](https://github.com/volcengine/ve-tos-rust-sdk)
+
+* 版本修订记录：[版本记录](https://github.com/volcengine/ve-tos-rust-sdk/blob/main/CHANGELOG.md)
+
+* 历史版本地址：[历史版本](https://github.com/volcengine/ve-tos-rust-sdk/releases)
+
+
+<span id="c47d6555"></span>
+## 安装方式
+
+TOS Rust SDK 使用 https://crates.io/ 管理安装包。搭建好开发环境和 Rust 工程后，可使用 `cargo` 引入依赖，如下：
+
+```Rust
+cargo add ve-tos-rust-sdk -F tokio-runtime
+```
+
+
+您也可以直接在 Cargo.toml 文件中新增 TOS Rust SDK 的依赖，如下：
+
+```Rust
+[dependencies]
+ve-tos-rust-sdk = { version = "2.9.2", features = ["tokio-runtime"] }
+```
+
+
+
+
+---
+本文介绍初始化客户端的示例代码及常见配置场景。
+
+<span id="73cbef87"></span>
+## 前提条件
+
+已[安装 Rust SDK](https://www.volcengine.com/docs/6349/2124723)。
+
+<span id="b0d149ef"></span>
+## 配置长期访问凭证
+
+初始化 SDK 前，您需要先配置长期访问凭证。本章节介绍不同操作系统下配置长期访问凭证的操作步骤。
+
+
+<Tabs>
+<Tab zoneid="ON4Tvqrrxz" title="macOS">
+<TabTitle>macOS</TabTitle>
+
+1. 打开终端并执行以下命令打开文件。
+
+
+```Shell
+nano ~/.bash_profile
+```
+
+
+
+2. 在文件末尾添加 AKSK 信息。
+
+
+```Shell
+export TOS_ACCESS_KEY=AKTPYmI1Z****
+export TOS_SECRET_KEY=T1dJM01UU****
+```
+
+
+
+3. 保存文件并退出。
+
+4. 执行以下命令生效配置信息。
+
+
+```Shell
+source ~/.bash_profile
+```
+
+
+
+5. 执行以下命令验证配置信息。
+
+
+```Shell
+echo $TOS_ACCESS_KEY
+echo $TOS_SECRET_KEY
+```
+
+
+如果配置成功，则返回如下示例：
+
+```Shell
+AKTPYmI1Z****
+T1dJM01UU****
+```
+
+
+
+</Tab>
+<Tab zoneid="WvmBtBmwfg" title="Linux">
+<TabTitle>Linux</TabTitle>
+
+1. 打开终端并执行以下命令打开文件。
+
+
+```Shell
+sudo vim /etc/profile
+```
+
+
+
+2. 在文件末尾添加 AKSK 信息。
+
+
+```Shell
+export TOS_ACCESS_KEY=AKTPYmI1Z****
+export TOS_SECRET_KEY=T1dJM01UU****
+```
+
+
+
+3. 保存文件并退出。
+
+4. 执行以下命令生效配置信息。
+
+
+```Shell
+source /etc/profile
+```
+
+
+
+5. 执行以下命令验证配置信息。
+
+
+```Shell
+echo $TOS_ACCESS_KEY
+echo $TOS_SECRET_KEY
+```
+
+
+如果配置成功，则返回如下示例：
+
+```Shell
+AKTPYmI1Z****
+T1dJM01UU****
+```
+
+
+
+</Tab>
+<Tab zoneid="ZEQ5lTwta1" title="Windows">
+<TabTitle>Windows</TabTitle>
+
+1. 打开命令行工具，执行以下命令，添加 AKSK 信息。
+
+
+```Shell
+set TOS_ACCESS_KEY=AKTPYmI1Z****
+set TOS_SECRET_KEY=T1dJM01UU****
+```
+
+
+
+2. 执行以下命令生效配置信息。
+
+
+```Shell
+setx TOS_ACCESS_KEY "%TOS_ACCESS_KEY%"
+setx TOS_SECRET_KEY "%TOS_SECRET_KEY%"
+```
+
+
+
+3. 重启命令行工具，然后执行以下命令验证配置信息。
+
+
+```Shell
+echo %TOS_ACCESS_KEY%
+echo %TOS_SECRET_KEY%
+```
+
+
+如果配置成功，则返回如下示例：
+
+```Shell
+AKTPYmI1Z****
+T1dJM01UU****
+```
+
+
+
+</Tab>
+</Tabs>
+
+
+<span id="5fb21056"></span>
+## 创建 TosClient
+
+初始化 TosClient 实例之后，您才可以向 TOS 服务发送 HTTP/HTTPS 请求。本文介绍 Rust SDK 的初始化方式。
+
+TOS Rust 客户端提供了一系列接口用来与 TOS 服务进行交互，用来管理桶和对象等 TOS 上的资源。初始化客户端时，需要带上 AccessKey ID、AccessKey Secret 和 Region 等信息。在初始化时，您可以设置建立连接超时时间、单次请求超时时间、超时重试次数和最大空闲连接数量等可选参数。
+
+```Rust
+use async_trait::async_trait;
+use futures_core::future::BoxFuture;
+use std::env;
+use std::future::Future;
+use std::time::Duration;
+use tokio::runtime::Handle;
+use ve_tos_rust_sdk::asynchronous::bucket::BucketAPI;
+use ve_tos_rust_sdk::asynchronous::tos;
+use ve_tos_rust_sdk::asynchronous::tos::AsyncRuntime;
+use ve_tos_rust_sdk::bucket::ListBucketsInput;
+use ve_tos_rust_sdk::common::init_tracing_log;
+use ve_tos_rust_sdk::error::TosError;
+
+#[derive(Debug, Default)]
+pub struct TokioRuntime {}
+
+#[async_trait]
+impl AsyncRuntime for TokioRuntime {
+    type JoinError = tokio::task::JoinError;
+    async fn sleep(&self, duration: Duration) {
+        tokio::time::sleep(duration).await;
+    }
+
+    fn spawn<'a, F>(&self, future: F) -> BoxFuture<'a, Result<F::Output, Self::JoinError>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        Box::pin(Handle::current().spawn(future))
+    }
+
+    fn block_on<F: Future>(&self, future: F) -> F::Output {
+        Handle::current().block_on(future)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    // init log
+    let _guard = init_tracing_log("info", "temp/logs", "app.log");
+
+    let ak = env::var("TOS_ACCESS_KEY").unwrap_or("".to_string());
+    let sk = env::var("TOS_SECRET_KEY").unwrap_or("".to_string());
+    let endpoint = "https://tos-cn-beijing.volces.com";
+    let region = "cn-beijing";
+    let tos_client = tos::builder::<TokioRuntime>()
+        .connection_timeout(3000)
+        .request_timeout(10000)
+        .max_connections(1024)
+        .max_retry_count(3)
+        .ak(ak)
+        .sk(sk)
+        .region(region)
+        .endpoint(endpoint)
+        .build()
+        .unwrap();
+
+    let output = tos_client.list_buckets(&ListBucketsInput::new()).await;
+    match output {
+        Ok(output) => {
+            println!("request_id: {}", output.request_id());
+            for bucket in output.buckets() {
+                println!("{}", bucket.name());
+            }
+        }
+        Err(err) => {
+            match err {
+                TosError::TosClientError { message, .. } => {
+                    println!("message: {}", message);
+                }
+                TosError::TosServerError { request_id, ec, .. } => {
+                    println!("request_id: {}, ec: {}", request_id, ec);
+                }
+            }
+        }
+    }
+}
+```
+
+
+<span id="ecaa06c5"></span>
+## 初始化参数列表
+
+初始化 TosClient 支持参数如下。
+
+
+|**参数** |**参数类型** |**是否必选** |**示例值** |**说明** |
+|---|---|---|---|---|
+|ak |String |可选 |AKTPYmI1ZGQwMDA0NjlhNGFkMzhjNzM0N2Q0OTQ3ZTV\*\*\*\* |Access Key ID，即密钥 ID。 |
+|sk |String |可选 |T1dJM01UUXpOak0wTVdWak5EUmtOR0poWldJNU1HWmxaV1V5TkdReVl6\*\*\*\* |SecretAccess Key，即私有访问密钥。 |
+|endpoint |String |可选 |https://tos\-cn\-beijing.volces.com |访问域名。 |
+|region |String |必选 |cn\-beijing |TOS 服务端所在地域。完整格式：https://{host}:{port}。 |
+|security_token |String |可选 |STSeyJBY2NvdW50SWQiOjIxMDAwMDUyMjQsIklkZW50aXR5VHlwZSI6NCwiSWRlbnRpdHlJZCI6MTE3MjI5NiwiQ2hhbm5lbCI6IlVzZXIiLCJBY2Nlc3NLZXlJZCI6IkFLVFBZbUkxWkdRd01EQTBOamxoTkdGa016aGpOek0wTjJRME9UUTNaVFZqTXpFIiwiU2l\*\*\*\*\*\*\*\*\*\*\*\* |临时访问凭证中的安全令牌。 |
+|control_endpoint |String |可选 |https://tos\-control\-cn\-beijing.volces.com |TOS 服务端控制面域名，完整格式：https://{host}:{port}。 |
+|enable_verify_ssl |bool |可选 |true |配置是否开启 SSL 证书校验，默认值为 true。 |
+|auto_recognize_content_type |bool |可选 |true |自动识别 MIME 类型，默认值为 true。 |
+|request_timeout |isize |可选 |120000 |一次 HTTP 请求总超时时间，单位：毫秒，默认 120000ms。 |
+|connection_timeout |isize |可选 |10000 |设置建立连接超时时间，单位：毫秒，默认值为 10000ms。 |
+|max_connections |isize |可选 |1024 |连接池中允许打开的最大 HTTP 连接数，默认值为 1024。 |
+|idle_connection_time |isize |可选 |60000 |连接池中空闲 HTTP 连接时间超过此参数的设定值，则关闭 HTTP 连接，单位：毫秒，默认 60000ms。 |
+|max_retry_count |isize |可选 |3 |设置最大重试次数，默认值为 3。 |
+|enable_crc |bool |可选 |true |设置开启 CRC 校验，默认值为 true。 |
+|is_custom_domain |bool |可选 |false |是否将桶名拼接到 Endpoint 前，通过虚拟主机域名的方式访问 TOS，取值说明如下：<br><br><br>* `true`：不拼接。<br><br>* `false`：拼接。<br><br><br>默认值为 false。<br><br><div data-tips="true" data-tips-type="tip" data-tips-is-title="true">说明</div><br><br><br><div data-tips="true" data-tips-type="tip">通过自定义域名访问 TOS 时，需要设置 <code>isCustomDomain</code> 为 <code>true</code>。</div><br> |
+|proxy_host |String |可选 |http://your\-proxy.com |代理服务器的主机地址，当前只支持 http 协议。 |
+|proxy_port |isize |可选 |8080 |代理服务器的端口号。 |
+|proxy_username |String |可选 |username |连接代理服务器时使用的用户名。 |
+|proxy_password |String |可选 |password |连接代理服务器时使用的用户密码。 |
+|disable_encoding_meta |bool |可选 |true |是否进行对用户自定义元数据（x\-tos\-meta\-\*）、Content\-Disposition 的编码，为 true 时不进行编码，默认为 false。 |
+|expect_100_continue_threshold |isize |可选 |65536 |大于 0 时，代表上传对象相关接口对于待上传的数据长度大于该阈值的请求（无法预测数据长度的情况统一判定为大于该阈值）开启 100\-Continue 机制，单位：字节，默认为 65536。 |
+|high_latency_log_threshold |isize |可选 |100 |大于 0 时，代表开启高延迟日志，单位：KB，默认为 100，当单次请求传输总速率低于该值且总请求耗时大于 500 毫秒时打印 WARN 级别日志。 |
+|user_agent_product_name |String |可选 |your\-product\-name |User\-Agent 扩展规范中的业务方/产品名。 |
+|user_agent_soft_name |String |可选 |your\-soft\-name |User\-Agent 扩展规范中的软件名。 |
+|user_agent_soft_version |String |可选 |v1.0.0 |User\-Agent 扩展规范中的软件版本号。 |
+|user_agent_customized_key_values |HashMap<String, String\> |可选 |\- |User\-Agent 扩展规范中的自定义扩展 KV 键值对。 |
+|follow_redirect_times |isize |可选 |3 |Get/Head 请求跟随 3xx 重定向的最大次数，默认为 0，代表不跟随重定向。 |
+|client_crt |String |可选 |\- |客户端 SSL 证书文件路径。 |
+|client_key |String |可选 |\- |客户端 SSL 密钥文件路径。 |
+|ca_crt |String |可选 |\- |服务端自定义根证书文件路径。 |
+
+
+&nbsp;
+
+
+
+
+----
+本文介绍如何通过 TOS Rust SDK 来完成常见的操作，如创建桶，上传、下载和删除对象等。
+
+<span id="a0b34eda"></span>
+## 创建桶
+
+存储桶（Bucket）是 TOS 的全局唯一的命名空间，相当于数据的容器，用来储存对象数据。如下代码展示如何创建一个新存储桶。
+
+```Rust
+use async_trait::async_trait;
+use futures_core::future::BoxFuture;
+use std::env;
+use std::future::Future;
+use std::time::Duration;
+use tokio::runtime::Handle;
+use ve_tos_rust_sdk::asynchronous::bucket::BucketAPI;
+use ve_tos_rust_sdk::asynchronous::tos;
+use ve_tos_rust_sdk::asynchronous::tos::AsyncRuntime;
+use ve_tos_rust_sdk::bucket::CreateBucketInput;
+use ve_tos_rust_sdk::error::TosError;
+
+#[derive(Debug, Default)]
+pub struct TokioRuntime {}
+
+#[async_trait]
+impl AsyncRuntime for TokioRuntime {
+    type JoinError = tokio::task::JoinError;
+    async fn sleep(&self, duration: Duration) {
+        tokio::time::sleep(duration).await;
+    }
+
+    fn spawn<'a, F>(&self, future: F) -> BoxFuture<'a, Result<F::Output, Self::JoinError>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        Box::pin(Handle::current().spawn(future))
+    }
+
+    fn block_on<F: Future>(&self, future: F) -> F::Output {
+        Handle::current().block_on(future)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let ak = env::var("TOS_ACCESS_KEY").unwrap_or("".to_string());
+    let sk = env::var("TOS_SECRET_KEY").unwrap_or("".to_string());
+    let endpoint = "https://tos-cn-beijing.volces.com";
+    let region = "cn-beijing";
+    let tos_client = tos::builder::<TokioRuntime>()
+        .connection_timeout(3000)
+        .request_timeout(10000)
+        .max_connections(1024)
+        .max_retry_count(3)
+        .ak(ak)
+        .sk(sk)
+        .region(region)
+        .endpoint(endpoint)
+        .build()
+        .unwrap();
+
+    let bucket = "bucketname";
+    let input = CreateBucketInput::new(bucket);
+    let output = tos_client.create_bucket(&input).await;
+    match output {
+        Ok(output) => {
+            println!("request_id: {}", output.request_id());
+        }
+        Err(err) => {
+            match err {
+                TosError::TosClientError { message, .. } => {
+                    println!("message: {}", message);
+                }
+                TosError::TosServerError { request_id, ec, .. } => {
+                    println!("request_id: {}, ec: {}", request_id, ec);
+                }
+            }
+        }
+    }
+}
+```
+
+
+<span id="30fc7789"></span>
+## 上传对象
+
+新建存储桶成功后，可以上传对象对象到存储桶中。以下代码将字符串上传到 TOS 存储桶。
+
+```Rust
+use async_trait::async_trait;
+use futures_core::future::BoxFuture;
+use std::env;
+use std::future::Future;
+use std::time::Duration;
+use tokio::runtime::Handle;
+use ve_tos_rust_sdk::asynchronous::object::ObjectAPI;
+use ve_tos_rust_sdk::asynchronous::tos;
+use ve_tos_rust_sdk::asynchronous::tos::AsyncRuntime;
+use ve_tos_rust_sdk::error::TosError;
+use ve_tos_rust_sdk::object::PutObjectFromBufferInput;
+
+#[derive(Debug, Default)]
+pub struct TokioRuntime {}
+
+#[async_trait]
+impl AsyncRuntime for TokioRuntime {
+    type JoinError = tokio::task::JoinError;
+    async fn sleep(&self, duration: Duration) {
+        tokio::time::sleep(duration).await;
+    }
+
+    fn spawn<'a, F>(&self, future: F) -> BoxFuture<'a, Result<F::Output, Self::JoinError>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        Box::pin(Handle::current().spawn(future))
+    }
+
+    fn block_on<F: Future>(&self, future: F) -> F::Output {
+        Handle::current().block_on(future)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let ak = env::var("TOS_ACCESS_KEY").unwrap_or("".to_string());
+    let sk = env::var("TOS_SECRET_KEY").unwrap_or("".to_string());
+    let endpoint = "https://tos-cn-beijing.volces.com";
+    let region = "cn-beijing";
+    let tos_client = tos::builder::<TokioRuntime>()
+        .connection_timeout(3000)
+        .request_timeout(10000)
+        .max_connections(1024)
+        .max_retry_count(3)
+        .ak(ak)
+        .sk(sk)
+        .region(region)
+        .endpoint(endpoint)
+        .build()
+        .unwrap();
+
+    let bucket = "bucketname";
+    let key = "objectkey";
+    let mut input = PutObjectFromBufferInput::new(bucket, key);
+    // 设置对象内容
+    input.set_content("hello world");
+    let output = tos_client.put_object_from_buffer(&input).await;
+    match output {
+        Ok(output) => {
+            println!("request_id: {}", output.request_id());
+        }
+        Err(err) => {
+            match err {
+                TosError::TosClientError { message, .. } => {
+                    println!("message: {}", message);
+                }
+                TosError::TosServerError { request_id, ec, .. } => {
+                    println!("request_id: {}, ec: {}", request_id, ec);
+                }
+            }
+        }
+    }
+}
+```
+
+
+<span id="e6a0b421"></span>
+## 下载对象
+
+以下展示从存储桶中下载一个对象到内存中。
+
+```Rust
+use async_trait::async_trait;
+use futures_core::future::BoxFuture;
+use futures_util::StreamExt;
+use std::env;
+use std::future::Future;
+use std::time::Duration;
+use tokio::runtime::Handle;
+use ve_tos_rust_sdk::asynchronous::object::ObjectAPI;
+use ve_tos_rust_sdk::asynchronous::tos;
+use ve_tos_rust_sdk::asynchronous::tos::AsyncRuntime;
+use ve_tos_rust_sdk::error::TosError;
+use ve_tos_rust_sdk::object::GetObjectInput;
+
+#[derive(Debug, Default)]
+pub struct TokioRuntime {}
+
+#[async_trait]
+impl AsyncRuntime for TokioRuntime {
+    type JoinError = tokio::task::JoinError;
+    async fn sleep(&self, duration: Duration) {
+        tokio::time::sleep(duration).await;
+    }
+
+    fn spawn<'a, F>(&self, future: F) -> BoxFuture<'a, Result<F::Output, Self::JoinError>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        Box::pin(Handle::current().spawn(future))
+    }
+
+    fn block_on<F: Future>(&self, future: F) -> F::Output {
+        Handle::current().block_on(future)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let ak = env::var("TOS_ACCESS_KEY").unwrap_or("".to_string());
+    let sk = env::var("TOS_SECRET_KEY").unwrap_or("".to_string());
+    let endpoint = "https://tos-cn-beijing.volces.com";
+    let region = "cn-beijing";
+    let tos_client = tos::builder::<TokioRuntime>()
+        .connection_timeout(3000)
+        .request_timeout(10000)
+        .max_connections(1024)
+        .max_retry_count(3)
+        .ak(ak)
+        .sk(sk)
+        .region(region)
+        .endpoint(endpoint)
+        .build()
+        .unwrap();
+
+    let bucket = "bucketname";
+    let key = "objectkey";
+    let input = GetObjectInput::new(bucket, key);
+    let output = tos_client.get_object(&input).await;
+    match output {
+        Ok(mut output) => {
+            println!("request_id: {}", output.request_id());
+            // 读取对象内容到内存
+            let mut buf = Vec::new();
+            loop {
+                match output.next().await {
+                    None => break,
+                    Some(result) => {
+                        let x = result.unwrap();
+                        buf.extend_from_slice(x.slice(0..x.len()).as_ref());
+                    }
+                }
+            }
+            println!("{}", String::from_utf8(buf).unwrap());
+        }
+        Err(err) => {
+            match err {
+                TosError::TosClientError { message, .. } => {
+                    println!("message: {}", message);
+                }
+                TosError::TosServerError { request_id, ec, .. } => {
+                    println!("request_id: {}, ec: {}", request_id, ec);
+                }
+            }
+        }
+    }
+}
+```
+
+
+<span id="1bfcab58"></span>
+## 列举对象
+
+以下展示从存储桶中列举已经上传的对象。
+
+```Rust
+use async_trait::async_trait;
+use futures_core::future::BoxFuture;
+use std::env;
+use std::future::Future;
+use std::time::Duration;
+use tokio::runtime::Handle;
+use ve_tos_rust_sdk::asynchronous::object::ObjectAPI;
+use ve_tos_rust_sdk::asynchronous::tos;
+use ve_tos_rust_sdk::asynchronous::tos::AsyncRuntime;
+use ve_tos_rust_sdk::error::TosError;
+use ve_tos_rust_sdk::object::ListObjectsType2Input;
+
+#[derive(Debug, Default)]
+pub struct TokioRuntime {}
+
+#[async_trait]
+impl AsyncRuntime for TokioRuntime {
+    type JoinError = tokio::task::JoinError;
+    async fn sleep(&self, duration: Duration) {
+        tokio::time::sleep(duration).await;
+    }
+
+    fn spawn<'a, F>(&self, future: F) -> BoxFuture<'a, Result<F::Output, Self::JoinError>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        Box::pin(Handle::current().spawn(future))
+    }
+
+    fn block_on<F: Future>(&self, future: F) -> F::Output {
+        Handle::current().block_on(future)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let ak = env::var("TOS_ACCESS_KEY").unwrap_or("".to_string());
+    let sk = env::var("TOS_SECRET_KEY").unwrap_or("".to_string());
+    let endpoint = "https://tos-cn-beijing.volces.com";
+    let region = "cn-beijing";
+    let tos_client = tos::builder::<TokioRuntime>()
+        .connection_timeout(3000)
+        .request_timeout(10000)
+        .max_connections(1024)
+        .max_retry_count(3)
+        .ak(ak)
+        .sk(sk)
+        .region(region)
+        .endpoint(endpoint)
+        .build()
+        .unwrap();
+
+    let bucket = "bucketname";
+    let input = ListObjectsType2Input::new(bucket);
+    let output = tos_client.list_objects_type2(&input).await;
+    match output {
+        Ok(output) => {
+            println!("request_id: {}", output.request_id());
+            for content in output.contents() {
+                println!("content: {}, size: {}", content.key(), content.size());
+            }
+        }
+        Err(err) => {
+            match err {
+                TosError::TosClientError { message, .. } => {
+                    println!("message: {}", message);
+                }
+                TosError::TosServerError { request_id, ec, .. } => {
+                    println!("request_id: {}, ec: {}", request_id, ec);
+                }
+            }
+        }
+    }
+}
+```
+
+
+<span id="339ca334"></span>
+## 删除对象
+
+以下代码展示从存储桶中删除一个对象。
+
+```Rust
+use async_trait::async_trait;
+use futures_core::future::BoxFuture;
+use std::env;
+use std::future::Future;
+use std::time::Duration;
+use tokio::runtime::Handle;
+use ve_tos_rust_sdk::asynchronous::object::ObjectAPI;
+use ve_tos_rust_sdk::asynchronous::tos;
+use ve_tos_rust_sdk::asynchronous::tos::AsyncRuntime;
+use ve_tos_rust_sdk::error::TosError;
+use ve_tos_rust_sdk::object::DeleteObjectInput;
+
+#[derive(Debug, Default)]
+pub struct TokioRuntime {}
+
+#[async_trait]
+impl AsyncRuntime for TokioRuntime {
+    type JoinError = tokio::task::JoinError;
+    async fn sleep(&self, duration: Duration) {
+        tokio::time::sleep(duration).await;
+    }
+
+    fn spawn<'a, F>(&self, future: F) -> BoxFuture<'a, Result<F::Output, Self::JoinError>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        Box::pin(Handle::current().spawn(future))
+    }
+
+    fn block_on<F: Future>(&self, future: F) -> F::Output {
+        Handle::current().block_on(future)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let ak = env::var("TOS_ACCESS_KEY").unwrap_or("".to_string());
+    let sk = env::var("TOS_SECRET_KEY").unwrap_or("".to_string());
+    let endpoint = "https://tos-cn-beijing.volces.com";
+    let region = "cn-beijing";
+    let tos_client = tos::builder::<TokioRuntime>()
+        .connection_timeout(3000)
+        .request_timeout(10000)
+        .max_connections(1024)
+        .max_retry_count(3)
+        .ak(ak)
+        .sk(sk)
+        .region(region)
+        .endpoint(endpoint)
+        .build()
+        .unwrap();
+
+    let bucket = "bucketname";
+    let key = "objectkey";
+    let input = DeleteObjectInput::new(bucket, key);
+    let output = tos_client.delete_object(&input).await;
+    match output {
+        Ok(output) => {
+            println!("request_id: {}", output.request_id());
+        }
+        Err(err) => {
+            match err {
+                TosError::TosClientError { message, .. } => {
+                    println!("message: {}", message);
+                }
+                TosError::TosServerError { request_id, ec, .. } => {
+                    println!("request_id: {}, ec: {}", request_id, ec);
+                }
+            }
+        }
+    }
+}
+```
+
+
+
+
+---
+pre_signed_url 接口用于生成带签名的临时上传或下载 URL，本文介绍如何通过 Rust SDK 的 pre_signed_url 接口获取该 URL 并直接访问对象。
+
+<span id=".5rOo5oSP5LqL6aG5"></span>
+## 注意事项
+
+
+* 您需要根据实际情况，填写示例代码中的地域和访问域名，详细介绍，请参见 [地域和访问域名](https://www.volcengine.com/docs/6349/107356)。
+
+* 为了防止密钥泄露，本文示例代码需要从环境变量中读取 Access Key ID 和 Secret Access Key。因此使用 SDK 前，您需要配置长期访问凭证，详细介绍，请参见 [配置长期访问凭证](https://www.volcengine.com/docs/6349/2124710#b0d149ef)。
+
+* pre_signed_url 有效期由 expires 参数控制，单位秒，最大不超过 7 天。
+
+* 使用 pre_signed_url 上传时，http_method 须与生成时指定的 method 保持一致，否则返回 403。
+
+
+&nbsp;
+
+<span id=".5Luj56CB56S65L6L"></span>
+## 代码示例
+
+<span id=".5L2_55So6aKE562-5ZCN55qELXVybC3kuIrkvKDlr7nosaE="></span>
+### 使用预签名的 URL 上传对象
+
+```Rust
+use async_trait::async_trait;
+use futures_core::future::BoxFuture;
+use std::env;
+use std::future::Future;
+use std::time::Duration;
+use tokio::runtime::Handle;
+use ve_tos_rust_sdk::common::init_tracing_log;
+use ve_tos_rust_sdk::enumeration::{HttpMethodType};
+use ve_tos_rust_sdk::asynchronous::tos;
+use ve_tos_rust_sdk::asynchronous::tos::AsyncRuntime;
+use ve_tos_rust_sdk::auth::{PreSignedURLInput, SignerAPI};
+use reqwest::Client as HttpClient;
+use ve_tos_rust_sdk::error::TosError;
+
+#[derive(Debug, Default)]
+pub struct TokioRuntime {}
+
+#[async_trait]
+impl AsyncRuntime for TokioRuntime {
+    type JoinError = tokio::task::JoinError;
+    async fn sleep(&self, duration: Duration) {
+        tokio::time::sleep(duration).await;
+    }
+
+    fn spawn<'a, F>(&self, future: F) -> BoxFuture<'a, Result<F::Output, Self::JoinError>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        Box::pin(Handle::current().spawn(future))
+    }
+
+    fn block_on<F: Future>(&self, future: F) -> F::Output {
+        Handle::current().block_on(future)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let _guard = init_tracing_log("info", "temp/logs", "app.log");
+    let ak = env::var("TOS_ACCESS_KEY").unwrap_or("".to_string());
+    let sk = env::var("TOS_SECRET_KEY").unwrap_or("".to_string());
+    let endpoint = "https://tos-cn-beijing.volces.com";
+    let region = "cn-beijing";
+    let client = tos::builder::<TokioRuntime>()
+        .connection_timeout(3000)
+        .request_timeout(10000)
+        .max_retry_count(3)
+        .ak(ak)
+        .sk(sk)
+        .region(region)
+        .endpoint(endpoint)
+        .build().unwrap();
+
+    // 1. 使用预签名的URL上传对象
+    let bucket = "example-bucket";
+    let key = "test-upload-object.txt";
+    let mut upload_input = PreSignedURLInput::new_with_key(bucket, key);
+    upload_input.set_http_method(HttpMethodType::HttpMethodPut);
+    upload_input.set_expires(3600); // 有效期1小时
+
+    let upload_output = client.pre_signed_url(&upload_input);
+    match upload_output {
+        Ok(output) => {
+            println!("Pre-signed URL for upload: {}", output.signed_url());
+            // 使用reqwest客户端上传对象
+            let http_client = HttpClient::new();
+            let upload_response = http_client.put(output.signed_url())
+                .body("Hello from pre-signed URL upload")
+                .send()
+                .await;
+            match upload_response {
+                Ok(resp) if resp.status().is_success() => {
+                    println!("Upload successful with status: {}", resp.status());
+                }
+                Ok(resp) => {
+                    println!("Upload failed with status: {}", resp.status());
+                }
+                Err(e) => {
+                    println!("Upload request error: {}", e);
+                }
+            }
+        }
+        Err(err) => {
+            match err {
+                TosError::TosClientError { message, .. } => {
+                    println!("Client error: {}", message);
+                }
+                TosError::TosServerError { request_id, ec, code, .. } => {
+                    println!("Server error: request_id: {}, ec: {}, code: {}", request_id, ec, code);
+                }
+            }
+        }
+    }
+}
+```
+
+
+<span id=".5L2_55So6aKE562-5ZCN55qELXVybC3kuIvovb3lr7nosaE="></span>
+### 使用预签名的 URL 下载对象
+
+```Rust
+use async_trait::async_trait;
+use futures_core::future::BoxFuture;
+use std::env;
+use std::future::Future;
+use std::time::Duration;
+use tokio::runtime::Handle;
+use ve_tos_rust_sdk::common::init_tracing_log;
+use ve_tos_rust_sdk::enumeration::{HttpMethodType};
+use ve_tos_rust_sdk::asynchronous::tos;
+use ve_tos_rust_sdk::asynchronous::tos::AsyncRuntime;
+use ve_tos_rust_sdk::auth::{PreSignedURLInput, SignerAPI};
+use reqwest::Client as HttpClient;
+use ve_tos_rust_sdk::error::TosError;
+
+#[derive(Debug, Default)]
+pub struct TokioRuntime {}
+
+#[async_trait]
+impl AsyncRuntime for TokioRuntime {
+    type JoinError = tokio::task::JoinError;
+    async fn sleep(&self, duration: Duration) {
+        tokio::time::sleep(duration).await;
+    }
+
+    fn spawn<'a, F>(&self, future: F) -> BoxFuture<'a, Result<F::Output, Self::JoinError>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        Box::pin(Handle::current().spawn(future))
+    }
+
+    fn block_on<F: Future>(&self, future: F) -> F::Output {
+        Handle::current().block_on(future)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let _guard = init_tracing_log("info", "temp/logs", "app.log");
+    let ak = env::var("TOS_ACCESS_KEY").unwrap_or("".to_string());
+    let sk = env::var("TOS_SECRET_KEY").unwrap_or("".to_string());
+    let endpoint = "https://tos-cn-beijing.volces.com";
+    let region = "cn-beijing";
+    let client = tos::builder::<TokioRuntime>()
+        .connection_timeout(3000)
+        .request_timeout(10000)
+        .max_retry_count(3)
+        .ak(ak)
+        .sk(sk)
+        .region(region)
+        .endpoint(endpoint)
+        .build().unwrap();
+
+    // 2. 使用预签名的URL下载对象
+    let bucket = "example-bucket";
+    let key = "test-download-object.txt";
+    let mut download_input = PreSignedURLInput::new_with_key(bucket, key);
+    download_input.set_http_method(HttpMethodType::HttpMethodGet);
+    download_input.set_expires(3600);
+
+    let download_output = client.pre_signed_url(&download_input);
+    match download_output {
+        Ok(output) => {
+            println!("Pre-signed URL for download: {}", output.signed_url());
+            // 使用reqwest客户端下载对象
+            let http_client = HttpClient::new();
+            let download_response = http_client.get(output.signed_url())
+                .send()
+                .await;
+            match download_response {
+                Ok(resp) if resp.status().is_success() => {
+                    let content = resp.text().await.unwrap();
+                    println!("Download successful, content: {}", content);
+                }
+                Ok(resp) => {
+                    println!("Download failed with status: {}", resp.status());
+                }
+                Err(e) => {
+                    println!("Download request error: {}", e);
+                }
+            }
+        }
+        Err(err) => {
+            match err {
+                TosError::TosClientError { message, .. } => {
+                    println!("Client error: {}", message);
+                }
+                TosError::TosServerError { request_id, ec, code, .. } => {
+                    println!("Server error: request_id: {}, ec: {}, code: {}", request_id, ec, code);
+                }
+            }
+        }
+    }
+}
+```
+
+
+<span id=".5L2_55So6aKE562-5ZCN55qELXVybC3liKDpmaTlr7nosaE="></span>
+### 使用预签名的 URL 删除对象
+
+```Rust
+use async_trait::async_trait;
+use futures_core::future::BoxFuture;
+use std::env;
+use std::future::Future;
+use std::time::Duration;
+use tokio::runtime::Handle;
+use ve_tos_rust_sdk::common::init_tracing_log;
+use ve_tos_rust_sdk::enumeration::{HttpMethodType};
+use ve_tos_rust_sdk::asynchronous::tos;
+use ve_tos_rust_sdk::asynchronous::tos::AsyncRuntime;
+use ve_tos_rust_sdk::auth::{PreSignedURLInput, SignerAPI};
+use reqwest::Client as HttpClient;
+use ve_tos_rust_sdk::error::TosError;
+
+#[derive(Debug, Default)]
+pub struct TokioRuntime {}
+
+#[async_trait]
+impl AsyncRuntime for TokioRuntime {
+    type JoinError = tokio::task::JoinError;
+    async fn sleep(&self, duration: Duration) {
+        tokio::time::sleep(duration).await;
+    }
+
+    fn spawn<'a, F>(&self, future: F) -> BoxFuture<'a, Result<F::Output, Self::JoinError>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        Box::pin(Handle::current().spawn(future))
+    }
+
+    fn block_on<F: Future>(&self, future: F) -> F::Output {
+        Handle::current().block_on(future)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let _guard = init_tracing_log("info", "temp/logs", "app.log");
+    let ak = env::var("TOS_ACCESS_KEY").unwrap_or("".to_string());
+    let sk = env::var("TOS_SECRET_KEY").unwrap_or("".to_string());
+    let endpoint = "https://tos-cn-beijing.volces.com";
+    let region = "cn-beijing";
+    let client = tos::builder::<TokioRuntime>()
+        .connection_timeout(3000)
+        .request_timeout(10000)
+        .max_retry_count(3)
+        .ak(ak)
+        .sk(sk)
+        .region(region)
+        .endpoint(endpoint)
+        .build().unwrap();
+
+    // 3. 使用预签名的URL删除对象
+    let bucket = "example-bucket";
+    let key = "test-delete-object.txt";
+    let mut delete_input = PreSignedURLInput::new_with_key(bucket, key);
+    delete_input.set_http_method(HttpMethodType::HttpMethodDelete);
+    delete_input.set_expires(3600);
+
+    let delete_output = client.pre_signed_url(&delete_input);
+    match delete_output {
+        Ok(output) => {
+            println!("Pre-signed URL for delete: {}", output.signed_url());
+            // 使用reqwest客户端删除对象
+            let http_client = HttpClient::new();
+            let delete_response = http_client.delete(output.signed_url())
+                .send()
+                .await;
+            match delete_response {
+                Ok(resp) if resp.status().is_success() => {
+                    println!("Delete successful with status: {}", resp.status());
+                }
+                Ok(resp) => {
+                    println!("Delete failed with status: {}", resp.status());
+                }
+                Err(e) => {
+                    println!("Delete request error: {}", e);
+                }
+            }
+        }
+        Err(err) => {
+            match err {
+                TosError::TosClientError { message, .. } => {
+                    println!("Client error: {}", message);
+                }
+                TosError::TosServerError { request_id, ec, code, .. } => {
+                    println!("Server error: request_id: {}, ec: {}, code: {}", request_id, ec, code);
+                }
+            }
+        }
+    }
+}
+```
+
+
+<span id=".55u45YWz5paH5qGj"></span>
+## 相关文档
+
+关于 PreSignedURL 的 API 文档，请参见 [URL 中包含签名](https://www.volcengine.com/docs/6349/129226)。
+
+
+
+---
+pre_signed_post_signature 接口用于生成 PostObject 所需的签名与策略，本文介绍如何通过 Rust SDK 的 pre_signed_post_signature 接口获取该签名与策略。
+
+<span id=".5rOo5oSP5LqL6aG5"></span>
+## 注意事项
+
+
+* 您需要根据实际情况，填写示例代码中的地域和访问域名，详细介绍，请参见 [地域和访问域名](https://www.volcengine.com/docs/6349/107356)。
+
+* 为了防止密钥泄露，本文示例代码需要从环境变量中读取 Access Key ID 和 Secret Access Key。因此使用 SDK 前，您需要配置长期访问凭证，详细介绍，请参见 [配置长期访问凭证](https://www.volcengine.com/docs/6349/2124710#b0d149ef)。
+
+
+<span id=".5Luj56CB56S65L6L"></span>
+## 代码示例
+
+<span id=".5L2_55So6buY6K6k6L-H5pyf5pe26Ze0"></span>
+### 使用默认过期时间
+
+```Rust
+use async_trait::async_trait;
+use futures_core::future::BoxFuture;
+use std::env;
+use std::future::Future;
+use std::time::Duration;
+use tokio::runtime::Handle;
+use ve_tos_rust_sdk::common::init_tracing_log;
+use ve_tos_rust_sdk::asynchronous::tos;
+use ve_tos_rust_sdk::asynchronous::tos::AsyncRuntime;
+use ve_tos_rust_sdk::auth::{PreSignedPostSignatureInput, SignerAPI};
+use ve_tos_rust_sdk::error::TosError;
+
+#[derive(Debug, Default)]
+pub struct TokioRuntime {}
+
+#[async_trait]
+impl AsyncRuntime for TokioRuntime {
+    type JoinError = tokio::task::JoinError;
+    async fn sleep(&self, duration: Duration) {
+        tokio::time::sleep(duration).await;
+    }
+
+    fn spawn<'a, F>(&self, future: F) -> BoxFuture<'a, Result<F::Output, Self::JoinError>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        Box::pin(Handle::current().spawn(future))
+    }
+
+    fn block_on<F: Future>(&self, future: F) -> F::Output {
+        Handle::current().block_on(future)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let _guard = init_tracing_log("info", "temp/logs", "app.log");
+    let ak = env::var("TOS_ACCESS_KEY").unwrap_or("".to_string());
+    let sk = env::var("TOS_SECRET_KEY").unwrap_or("".to_string());
+    let endpoint = "https://tos-cn-beijing.volces.com";
+    let region = "cn-beijing";
+    let client = tos::builder::<TokioRuntime>()
+        .connection_timeout(3000)
+        .request_timeout(10000)
+        .max_retry_count(3)
+        .ak(ak)
+        .sk(sk)
+        .region(region)
+        .endpoint(endpoint)
+        .build().unwrap();
+
+    // Create input with default expiration (3600 seconds)
+    let input = PreSignedPostSignatureInput::new_with_key("example-bucket", "test-object.txt");
+    let output = client.pre_signed_post_signature(&input);
+
+    match output {
+        Ok(output) => {
+            println!("origin_policy: {}", output.origin_policy());
+            println!("policy: {}", output.policy());
+            println!("algorithm: {}", output.algorithm());
+            println!("credential: {}", output.credential());
+            println!("date: {}", output.date());
+            println!("signature: {}", output.signature());
+        }
+        Err(err) => {
+            match err {
+                TosError::TosClientError { message, .. } => {
+                    println!("Client error: {}", message);
+                }
+                TosError::TosServerError { request_id, ec, code, .. } => {
+                    println!("Server error: request_id: {}, ec: {}, code: {}", request_id, ec, code);
+                }
+            }
+        }
+    }
+}
+```
+
+
+<span id=".55u45YWz5paH5qGj"></span>
+## 相关文档
+
+关于 PreSignedPostSignature 的 API 文档，请参见 [PostObject](https://www.volcengine.com/docs/6349/129228)。
+
+
+
+---

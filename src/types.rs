@@ -71,6 +71,14 @@ pub struct Config {
     pub app_key: Option<String>,
     pub access_key: Option<String>,
 
+    // --- TOS 对象存储 ---
+    pub tos_ak: Option<String>,
+    pub tos_sk: Option<String>,
+    pub tos_bucket: String,
+    pub tos_endpoint: String,
+    pub tos_region: String,
+    pub tos_key_prefix: Option<String>,
+
     // --- Azure 认证 ---
     pub azure_key: Option<String>,
     pub azure_region: Option<String>,
