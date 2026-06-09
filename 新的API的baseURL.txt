@@ -1,0 +1,16 @@
+调用在线算子时，您需要先根据您当前使用的LAS服务所在地域，了解算子调用的BaseURL，用于配置算子调用路径参数取值。本文为您介绍各个地域的 Base URL信息。
+
+| | | | | \
+|地域 |region id |Base URL |算子调用路径示例 |
+|---|---|---|---|
+| | | | | \
+|华北 2 （北京） |cn-beijing |https://operator.las.cn-beijing.volces.com |https://operator.las.cn-beijing.volces.com/api/v1/process |
+| | | | | \
+|华东 2 （上海） |cn-shanghai |https://operator.las.cn-shanghai.volces.com |https://operator.las.cn-shanghai.volces.com/api/v1/process |
+| | | | | \
+|华南1（广州） |cn-guangzhou |https://operator.las.cn-guangzhou.volces.com |https://operator.las.cn-guangzhou.volces.com/api/v1/process |
+
+:::tip
+本文为您介绍的是在线算子调用的Base URL和调用路径示例，LAS 其他API的服务地址请参见[服务地址](/docs/6492/2048450)文档。
+:::
+

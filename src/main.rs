@@ -28,6 +28,7 @@ mod audio;
 mod azure;
 mod backend;
 mod input;
+mod las;
 mod output;
 mod types;
 mod volcengine;
@@ -56,8 +57,8 @@ use crate::types::*;
 )]
 struct Cli {
     // ---- 提供商选择 ----
-    /// 语音转文本提供商：volcengine（默认）或 azure
-    #[arg(long, default_value = "volcengine", help = "提供商: volcengine | azure")]
+    /// 语音转文本提供商：volcengine（默认）/ las / azure
+    #[arg(long, default_value = "volcengine", help = "提供商: volcengine | las | azure")]
     provider: String,
 
     // ---- 火山引擎认证 ----
@@ -146,6 +147,63 @@ struct Cli {
     #[arg(long, help = "火山引擎: 上下文 JSON 字符串")]
     corpus_context: Option<String>,
 
+    // ---- LAS 算子专用 ----
+    /// LAS 服务区域：cn-beijing / cn-shanghai / cn-guangzhou
+    #[arg(long, default_value = "cn-beijing", help = "LAS: 服务区域")]
+    las_region: String,
+
+    /// LAS 算子版本：v1（默认）或 v2
+    #[arg(long, default_value = "v1", help = "LAS: 算子版本 v1|v2")]
+    operator_version: String,
+
+    /// LAS 模型版本。bigasr: "310"(默认) / "400"(优化版)；seedasr 请勿传此参数
+    #[arg(long, help = "LAS: bigasr 模型版本 310|400")]
+    model_version: Option<String>,
+
+    /// 是否开启降噪（LAS）
+    #[arg(long, default_value_t = false, help = "LAS: 开启降噪")]
+    enable_denoise: bool,
+
+    /// 是否开启多语种识别（LAS，默认 true，支持 99 种语言）
+    #[arg(long, default_value_t = true, help = "LAS: 开启多语种识别")]
+    enable_multi_language: bool,
+
+    /// 是否开启双声道分离（LAS）
+    #[arg(long, default_value_t = false, help = "LAS: 双声道分离识别")]
+    enable_channel_split: bool,
+
+    /// 分句携带语速（LAS）
+    #[arg(long, default_value_t = false, help = "LAS: 分句携带语速")]
+    show_speech_rate: bool,
+
+    /// 分句携带音量（LAS）
+    #[arg(long, default_value_t = false, help = "LAS: 分句携带音量")]
+    show_volume: bool,
+
+    /// 语种识别（LAS：中英/方言）
+    #[arg(long, default_value_t = false, help = "LAS: 开启语种识别")]
+    enable_lid: bool,
+
+    /// 情绪检测（LAS: angry/happy/neutral/sad/surprise）
+    #[arg(long, default_value_t = false, help = "LAS: 开启情绪检测")]
+    enable_emotion_detection: bool,
+
+    /// 性别检测（LAS: male/female）
+    #[arg(long, default_value_t = false, help = "LAS: 开启性别检测")]
+    enable_gender_detection: bool,
+
+    /// 敏感词过滤 JSON 字符串（LAS）
+    #[arg(long, help = "LAS: 敏感词过滤")]
+    sensitive_words_filter: Option<String>,
+
+    /// POI 地图识别（LAS）
+    #[arg(long, default_value_t = false, help = "LAS: 开启 POI 地图识别")]
+    enable_poi_fc: bool,
+
+    /// 音乐识别（LAS）
+    #[arg(long, default_value_t = false, help = "LAS: 开启音乐识别")]
+    enable_music_fc: bool,
+
     // ---- Azure 专用 ----
     /// 多语言识别的候选语言列表（逗号分隔，最多 10 个）
     /// 例如 "en-US,zh-CN,ja-JP,ko-KR"。设置后启用 Azure Language Identification。
@@ -226,6 +284,9 @@ async fn main() -> Result<()> {
     match config.provider {
         Provider::Volcengine => {
             run_pipeline::<volcengine::VolcengineBackend>(&client, &config, &inputs).await
+        }
+        Provider::Las => {
+            run_pipeline::<las::LasBackend>(&client, &config, &inputs).await
         }
         Provider::Azure => {
             run_pipeline::<azure::AzureBackend>(&client, &config, &inputs).await
@@ -392,6 +453,7 @@ async fn build_config(cli: Cli) -> Result<Config> {
     // --- 提供商 ---
     let provider = match cli.provider.as_str() {
         "azure" | "Azure" => Provider::Azure,
+        "las" | "LAS" | "las_asr_pro" => Provider::Las,
         "volcengine" | "volc" | "" | _ => Provider::Volcengine,
     };
 
@@ -419,8 +481,18 @@ async fn build_config(cli: Cli) -> Result<Config> {
                         .interact_text()?
                 }
             };
-            // 对于 Azure，api_key 使用 azure_key 的副本以兼容存储逻辑
             (az_key.clone(), Some(az_key), Some(az_region))
+        } else if provider == Provider::Las {
+            // LAS 认证（Bearer Token）
+            let key = match cli.api_key {
+                Some(ref v) if !v.trim().is_empty() => v.clone(),
+                _ => {
+                    Input::<String>::with_theme(&theme)
+                        .with_prompt("请输入 LAS API Key（Bearer Token）")
+                        .interact_text()?
+                }
+            };
+            (key, None, None)
         } else {
             // 火山引擎认证
             let key = match cli.api_key {
@@ -517,6 +589,13 @@ async fn build_config(cli: Cli) -> Result<Config> {
         return Err(anyhow!("Azure 提供商需要 --azure-region"));
     }
 
+    // LAS 算子不限大小和时长，无需切分
+    let (max_duration_secs, max_size_bytes) = if provider == Provider::Las {
+        (u64::MAX, u64::MAX)
+    } else {
+        (cli.max_duration_secs, cli.max_size_bytes)
+    };
+
     Ok(Config {
         provider,
         api_key,
@@ -537,14 +616,28 @@ async fn build_config(cli: Cli) -> Result<Config> {
         boosting_table_name: cli.boosting_table_name,
         correct_table_name: cli.correct_table_name,
         corpus_context: cli.corpus_context,
+        las_region: cli.las_region,
+        operator_version: cli.operator_version,
+        model_version: cli.model_version,
+        enable_denoise: cli.enable_denoise,
+        enable_multi_language: cli.enable_multi_language,
+        enable_channel_split: cli.enable_channel_split,
+        show_speech_rate: cli.show_speech_rate,
+        show_volume: cli.show_volume,
+        enable_lid: cli.enable_lid,
+        enable_emotion_detection: cli.enable_emotion_detection,
+        enable_gender_detection: cli.enable_gender_detection,
+        sensitive_words_filter: cli.sensitive_words_filter,
+        enable_poi_fc: cli.enable_poi_fc,
+        enable_music_fc: cli.enable_music_fc,
         candidate_locales,
         word_level_timestamps: cli.word_level_timestamps,
         profanity_filter_mode: cli.profanity_filter_mode,
         punctuation_mode: cli.punctuation_mode,
         output_dir: cli.output_dir,
         poll_interval_secs: cli.poll_interval_secs,
-        max_duration_secs: cli.max_duration_secs,
-        max_size_bytes: cli.max_size_bytes,
+        max_duration_secs,
+        max_size_bytes,
         prepare_only: cli.prepare_only,
         max_split_depth: cli.max_split_depth,
     })

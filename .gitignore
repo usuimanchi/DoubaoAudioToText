@@ -15,6 +15,8 @@
 .DS_Store
 Thumbs.db
 
-# Temp files
-/tmp/
-*.tmp
+# API keys (never commit!)
+*API key*
+*API_key*
+*api_key*
+.last_api_key

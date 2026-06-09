@@ -33,6 +33,8 @@ pub enum Provider {
     Volcengine,
     #[serde(rename = "azure")]
     Azure,
+    #[serde(rename = "las")]
+    Las,
 }
 
 impl Provider {
@@ -40,13 +42,15 @@ impl Provider {
         match self {
             Provider::Volcengine => "volcengine",
             Provider::Azure => "azure",
+            Provider::Las => "las",
         }
     }
 
     pub fn display_name(&self) -> &'static str {
         match self {
-            Provider::Volcengine => "火山引擎（豆包大模型）",
+            Provider::Volcengine => "火山引擎（豆包大模型 bigmodel）",
             Provider::Azure => "Azure Speech-to-Text",
+            Provider::Las => "火山引擎 LAS 算子（las_asr_pro）",
         }
     }
 }
@@ -89,6 +93,36 @@ pub struct Config {
     pub correct_table_name: Option<String>,
     /// 上下文 JSON 字符串（支持 hotwords 直传、dialog_ctx 对话历史、image_url 图片理解）
     pub corpus_context: Option<String>,
+
+    // --- LAS 算子专用选项 ---
+    /// LAS 服务区域（默认 cn-beijing）
+    pub las_region: String,
+    /// 算子版本（v1 / v2）
+    pub operator_version: String,
+    /// 模型版本。bigasr: "310"(默认) / "400"(优化版)；seedasr 请勿传
+    pub model_version: Option<String>,
+    /// 是否开启降噪
+    pub enable_denoise: bool,
+    /// 是否开启多语种识别（默认 true，支持 99 种语言）
+    pub enable_multi_language: bool,
+    /// 双声道分离识别
+    pub enable_channel_split: bool,
+    /// 分句携带语速
+    pub show_speech_rate: bool,
+    /// 分句携带音量
+    pub show_volume: bool,
+    /// 语种识别（中英/方言）
+    pub enable_lid: bool,
+    /// 情绪检测（angry/happy/neutral/sad/surprise）
+    pub enable_emotion_detection: bool,
+    /// 性别检测（male/female）
+    pub enable_gender_detection: bool,
+    /// 敏感词过滤 JSON 字符串
+    pub sensitive_words_filter: Option<String>,
+    /// POI 地图 function call
+    pub enable_poi_fc: bool,
+    /// 音乐 function call
+    pub enable_music_fc: bool,
 
     // --- Azure 专用选项 ---
     /// 多语言识别的候选语言列表（逗号分隔的 locale 字符串）
