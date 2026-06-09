@@ -23,8 +23,14 @@ use crate::types::{Config, PreparedChunk, SubmittedTaskSummary, Provider};
 const ARK_BASE: &str = "https://ark.cn-beijing.volces.com/api/v3";
 const ARK_MODEL: &str = "doubao-seed-2-0-lite-260428";
 
-const DEFAULT_PROMPT: &str =
-    "请完整转写这段音频，保留法语原文不翻译，中文部分添加标点符号。";
+const DEFAULT_PROMPT: &str = "\
+你是一个专业的多语种语音转写助手。请严格遵循以下规则转写这段音频：
+
+1. **法语部分**：必须保留法语原文，逐词逐句准确转写，绝对不能翻译、不能意译、不能改写成其他语言。
+2. **中文部分**：准确转写，并添加正确的标点符号（句号、逗号、问号等）。
+3. **中法混合**：按照说话人实际使用的语言分别记录，不要混在同一段。如果一段话中同时包含中文和法语，请分开分行记录。
+4. **格式**：每个独立的语句或自然停顿处换行。如有明显的话题切换，用空行分隔。
+5. **不要添加任何解释、评论、总结或元数据**（如'这段说的是...'、'音频内容为...'）。只输出转写文本。";
 
 // ---------------------------------------------------------------------------
 // Ark 请求/响应
@@ -58,8 +64,8 @@ struct ArkContent {
 
 pub struct ArkBackend;
 
-/// 从 Ark 响应 JSON 中提取文本
-fn extract_text(raw: &Value) -> Option<String> {
+/// 从 Ark 响应 JSON 中提取文本（公开，供合并逻辑使用）
+pub fn extract_text_from_response(raw: &Value) -> Option<String> {
     raw.get("output")?
         .as_array()?
         .iter()
@@ -134,7 +140,7 @@ impl TranscriptionBackend for ArkBackend {
 
         let raw: Value = resp.json().await.context("解析 Ark 响应失败")?;
 
-        let text = extract_text(&raw);
+        let text = extract_text_from_response(&raw);
         let elapsed = start.elapsed();
 
         let preview = text.as_deref().unwrap_or("（无文本）");
@@ -212,7 +218,7 @@ impl TranscriptionBackend for ArkBackend {
             &fs::read_to_string(&json_path)
                 .context("读取 Ark 结果文件失败")?,
         )?;
-        let text = extract_text(&raw);
+        let text = extract_text_from_response(&raw);
         Ok(TranscriptionOutput { raw_json: raw, text })
     }
 

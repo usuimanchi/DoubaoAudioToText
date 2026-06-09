@@ -327,22 +327,28 @@ pub async fn split_audio(
     let mut start = 0.0;
     let mut idx = 0usize;
 
-    while start < duration {
-        let out_path = base.join(format!("part_{:04}.ogg", idx));
+    let ext = &cfg.target_audio_format;
+    let (codec, enc, bitrate): (&str, &str, &str) = if ext == "mp3" {
+        ("mp3", "libmp3lame", "64k")
+    } else {
+        ("opus", "libopus", "48k")
+    };
 
-        let status = Command::new("ffmpeg")
-            .arg("-y")
-            .arg("-i").arg(src)
+    while start < duration {
+        let out_path = base.join(format!("part_{:04}.{ext}", idx));
+
+        let mut cmd = Command::new("ffmpeg");
+        cmd.arg("-y").arg("-i").arg(src)
             .arg("-ss").arg(format!("{start}"))
             .arg("-t").arg(format!("{segment_secs}"))
             .arg("-ac").arg("1")
             .arg("-ar").arg(meta.sample_rate.to_string())
-            .arg("-c:a").arg("libopus")
-            .arg("-b:a").arg("48k")
-            .arg("-vbr").arg("on")
-            .arg("-application").arg("audio")
-            .arg(&out_path)
-            .status()
+            .arg("-c:a").arg(enc)
+            .arg("-b:a").arg(bitrate);
+        if ext == "ogg" {
+            cmd.arg("-vbr").arg("on").arg("-application").arg("audio");
+        }
+        let status = cmd.arg(&out_path).status()
             .with_context(|| format!("ffmpeg 切分失败（片段 {}）", idx))?;
 
         if !status.success() {
@@ -351,15 +357,14 @@ pub async fn split_audio(
 
         let chunk_meta = probe_audio(&out_path).await?;
         if chunk_meta.size_bytes > cfg.max_size_bytes && depth + 1 < cfg.max_split_depth {
-            // 递归切分
             let sub_parts = Box::pin(split_audio(&out_path, cfg, &chunk_meta, depth + 1)).await?;
             parts.extend(sub_parts);
             fs::remove_file(&out_path).ok();
         } else {
             parts.push(PreparedChunk {
                 path: out_path,
-                format: "ogg".to_string(),
-                codec: "opus".to_string(),
+                format: ext.to_string(),
+                codec: codec.to_string(),
                 sample_rate: chunk_meta.sample_rate,
                 duration_secs: chunk_meta.duration_secs,
                 size_bytes: chunk_meta.size_bytes,

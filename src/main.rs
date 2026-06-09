@@ -548,6 +548,22 @@ async fn run_pipeline<B: TranscriptionBackend>(
         });
     }
 
+    // 合并分片结果
+    for summary in &all_summaries {
+        if summary.submitted.len() > 1 {
+            let merged = merge_chunk_results(summary, &config.output_dir);
+            match merged {
+                Ok(text) => {
+                    let merged_path = config.output_dir.join("result_merged.txt");
+                    fs::write(&merged_path, &text)?;
+                    println!("   📝 合并文本已保存: {}", merged_path.display());
+                    println!("   总字数: {} 字", text.chars().count());
+                }
+                Err(e) => println!("   ⚠️  合并失败: {e}"),
+            }
+        }
+    }
+
     // 写入 manifest
     if !all_summaries.is_empty() {
         let manifest_path = config.output_dir.join("manifest.json");
@@ -558,6 +574,25 @@ async fn run_pipeline<B: TranscriptionBackend>(
         "\n🎉 全部完成！准备: {total_prepared} 个片段，提交: {total_submitted} 个任务。"
     );
     Ok(())
+}
+
+fn merge_chunk_results(summary: &PersistedSummary, output_dir: &std::path::PathBuf) -> Result<String> {
+    let mut merged = String::new();
+    merged.push_str("# 合并转写结果\n\n");
+    for (i, s) in summary.submitted.iter().enumerate() {
+        merged.push_str(&format!("## 片段 {}\n\n", i + 1));
+        if let Some(ref t) = s.result_text {
+            merged.push_str(t);
+        } else if let Some(ref p) = s.result_json_path {
+            if let Ok(raw) = std::fs::read_to_string(p) {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&raw) {
+                    if let Some(t) = crate::ark::extract_text_from_response(&val) {
+                        merged.push_str(&t);
+    }}}
+        }
+        merged.push_str("\n\n---\n\n");
+    }
+    Ok(merged)
 }
 
 // ===========================================================================
