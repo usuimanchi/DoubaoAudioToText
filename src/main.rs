@@ -154,7 +154,7 @@ struct Cli {
     /// 强制判停时间（毫秒），范围 300-5000。
     /// 设置后按静音时长分句（VAD），替代默认的语义分句。
     /// 敏感场景可配 500 或更小，普通场景建议 800-1000。
-    #[arg(long, default_value = "800", help = "火山引擎: 强制判停时间 300-5000ms")]
+    #[arg(long, help = "火山引擎: 强制判停时间 300-5000ms")]
     end_window_size: Option<u32>,
 
     /// 自学习平台热词词表名称，参考 https://www.volcengine.com/docs/6561/155738
