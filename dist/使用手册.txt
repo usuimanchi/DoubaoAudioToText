@@ -35,7 +35,7 @@
   │                                                        │
   │  ⑤ 输入音频文件路径                                      │
   │    > 请输入音频输入（每行一个）                           │
-  │    把音频文件拖进窗口即可自动填入路径                     │
+  │    把音频文件从其他窗口拖进这个程序的窗口，即可自动填入路径  │
   │    （可以拖多个文件，每行一个，空行结束）                  │
   │                                                        │
   │  大功告成！程序开始自动处理。                             │
@@ -73,8 +73,8 @@ A: 去 https://console.volcengine.com/ark/ 注册（火山引擎）。
    登录后点「API Key 管理」→「创建 API Key」→ 复制。
 
 Q: TOS 密钥从哪里获取？
-A: 去 https://console.volcengine.com/tos/
-   「访问控制」→「Access Key 管理」→ 新建密钥。
+A: 去 https://console.volcengine.com/iam/keymanage
+   「访问控制」→「API访问密钥」→ 新建密钥。
 
 Q: 支持哪些音频格式？
 A: M4A、MP3、WAV 等都支持。不支持的会自动转换。
