@@ -283,6 +283,14 @@ struct Cli {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     let cli_inputs = cli.inputs.clone();
+
+    // 无参数运行 → 显示帮助并进入交互模式
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() <= 1 {
+        print_banner();
+        println!();
+    }
+
     let mut config = build_config(cli).await?;
 
     // 确保输出目录存在
@@ -574,6 +582,85 @@ async fn run_pipeline<B: TranscriptionBackend>(
         "\n🎉 全部完成！准备: {total_prepared} 个片段，提交: {total_submitted} 个任务。"
     );
     Ok(())
+}
+
+fn print_banner() {
+    let lang = detect_system_lang();
+    let banner = match lang {
+        "fr" => r#"
+╔══════════════════════════════════════════════════════════╗
+║     Volc AUC Batch Client — Transcription Audio       ║
+║     Fournisseur par défaut : Ark (doubao-seed-2-0-lite)║
+╠══════════════════════════════════════════════════════════╣
+║ Usage :                                                ║
+║   --api-key <KEY>     Clé API (obligatoire)           ║
+║   --inputs <FICHIER>  Fichier audio ou URL             ║
+║   --tos-ak <AK>       TOS Access Key (pour locale)     ║
+║   --tos-sk <SK>       TOS Secret Key                   ║
+║   --provider <NOM>    ark | las | volcengine | azure  ║
+╠══════════════════════════════════════════════════════════╣
+║ Exemple :                                               ║
+║   volc_auc_batch_client --api-key "ark-..." \           ║
+║     --tos-ak "AKLT..." --tos-sk "..." \                 ║
+║     --inputs "audio.m4a"                                ║
+╠══════════════════════════════════════════════════════════╣
+║ --help pour la liste complète des paramètres            ║
+╚══════════════════════════════════════════════════════════╝
+"#,
+        "en" => r#"
+╔══════════════════════════════════════════════════════════╗
+║     Volc AUC Batch Client — Audio Transcription       ║
+║     Default provider: Ark (doubao-seed-2-0-lite)       ║
+╠══════════════════════════════════════════════════════════╣
+║ Usage:                                                  ║
+║   --api-key <KEY>     API Key (required)               ║
+║   --inputs <FILE>     Audio file path or URL            ║
+║   --tos-ak <AK>       TOS Access Key (for local files)  ║
+║   --tos-sk <SK>       TOS Secret Key                   ║
+║   --provider <NAME>   ark | las | volcengine | azure  ║
+╠══════════════════════════════════════════════════════════╣
+║ Example:                                                ║
+║   volc_auc_batch_client --api-key "ark-..." \           ║
+║     --tos-ak "AKLT..." --tos-sk "..." \                 ║
+║     --inputs "audio.m4a"                                ║
+╠══════════════════════════════════════════════════════════╣
+║ --help for full parameter list                          ║
+╚══════════════════════════════════════════════════════════╝
+"#,
+        _ => r#"
+╔══════════════════════════════════════════════════════════╗
+║     Volc AUC Batch Client — 语音转文本批量客户端       ║
+║     默认提供商: Ark 方舟 (doubao-seed-2-0-lite)         ║
+╠══════════════════════════════════════════════════════════╣
+║ 用法:                                                   ║
+║   --api-key <KEY>     API Key (必填)                   ║
+║   --inputs <FILE>     音频文件路径或 URL                ║
+║   --tos-ak <AK>       TOS Access Key (本地文件需要)     ║
+║   --tos-sk <SK>       TOS Secret Key                   ║
+║   --provider <NAME>   ark | las | volcengine | azure  ║
+╠══════════════════════════════════════════════════════════╣
+║ 示例:                                                   ║
+║   volc_auc_batch_client --api-key "ark-..." \           ║
+║     --tos-ak "AKLT..." --tos-sk "..." \                 ║
+║     --inputs "audio.m4a"                                ║
+╠══════════════════════════════════════════════════════════╣
+║ --help 查看完整参数列表                                 ║
+╚══════════════════════════════════════════════════════════╝
+"#,
+    };
+    println!("{banner}");
+}
+
+fn detect_system_lang() -> &'static str {
+    // Windows: check locale
+    if let Ok(locale) = std::env::var("LANG") {
+        let l = locale.to_lowercase();
+        if l.starts_with("fr") || l.starts_with("fr_") { return "fr"; }
+        if l.starts_with("en") || l.starts_with("en_") { return "en"; }
+        if l.starts_with("zh") || l.starts_with("zh_") { return "zh"; }
+    }
+    // Windows: check system locale via powershell-equivalent or just default to zh
+    "zh"
 }
 
 fn merge_chunk_results(summary: &PersistedSummary, output_dir: &std::path::PathBuf) -> Result<String> {

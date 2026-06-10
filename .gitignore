@@ -24,3 +24,10 @@ Thumbs.db
 .last_api_key
 auc_LAS/
 auc_bigmodel/
+
+# Test artifacts
+test_audio/prepared/
+test_audio/download/
+test_audio/results/
+test_audio/manifest.json
+test_audio/result_merged.txt
