@@ -314,7 +314,7 @@ pub async fn split_audio(
     fs::create_dir_all(&base)?;
 
     let segment_secs = cfg.max_duration_secs as f64;
-    let overlap_secs = 5.0; // 每段前后重叠 5 秒，用于合并去重
+    let overlap_secs = 10.0; // 每段尾部重叠 10 秒，为边界句子提供上下文
     let total_segments = (duration / segment_secs).ceil() as u32;
     println!("   🔪 切分为最多 {} 段（每段 ≤ {} 秒，重叠 {} 秒）", total_segments, segment_secs, overlap_secs);
 

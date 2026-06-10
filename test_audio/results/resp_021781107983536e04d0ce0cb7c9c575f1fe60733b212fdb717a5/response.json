@@ -1,0 +1,51 @@
+{
+  "caching": {
+    "type": "disabled"
+  },
+  "created_at": 1781107988,
+  "expire_at": 1781367183,
+  "id": "resp_021781107983536e04d0ce0cb7c9c575f1fe60733b212fdb717a5",
+  "max_output_tokens": 32768,
+  "model": "doubao-seed-2-0-lite-260428",
+  "object": "response",
+  "output": [
+    {
+      "id": "rs_02178110798814100000000000000000000ffffac151ff9868622",
+      "status": "completed",
+      "summary": [
+        {
+          "text": "我正按规则逐句转写这段音频，目前已梳理出部分内容，包含中文提问、法语语句及部分中文表述。已梳理完当前段落的所有内容，明确转写要求为逐句拆分、中法分开，法语全量保留，中文需补充标点，不得混排。完整的双语对应文本已经梳理完毕，所有内容均已核对准确，内容覆盖了从开篇到末尾的全部有效片段，确认需要严格按照中文、法语分别归类的要求整理输出，全程不混合两种语言的内容，目前已敲定最终的整理规则，接下来将按此标准输出结果。",
+          "type": "summary_text"
+        }
+      ],
+      "type": "reasoning"
+    },
+    {
+      "content": [
+        {
+          "text": "他自己的表达，所以他将笔者视为一个想象性的存在，一个能够回应其需要的存在。\n\nC'est par exemple, prouve une modification de la configuration.\n\n严时意是谁呀？\n\nCréant ce qui lui satisfait. Son cri qui apparaît.\n\n就出现了一个没有见过的人。\n\n自身就能够真的引发外部世界格局的改变，从而真的产生令他满意的变化，比如他的哭泣能够即刻出现找到他。\n\nça va stimuler.\n\nde la question de l'autre par son action de produire.\n\nBonjour.\n\nBonjour.\n\n你好。\n\nun petit peu, qui marche.\n\n祝你好胃口，橘子。\n\nil est là, il va.\n\neuh.\n\nFendre.\n\nC'est de vivre.\n\n没有，我全程看的。\n但是我一看到他对上他的眼睛，我想到他跟我讲的那些话，我就觉得他恶心，我就看不了他。\n啊，找到啦。\n对。\nOui.\n哈哈。",
+          "type": "output_text"
+        }
+      ],
+      "id": "msg_02178110800186300000000000000000000ffffac151ff9830eb6",
+      "role": "assistant",
+      "status": "completed",
+      "type": "message"
+    }
+  ],
+  "service_tier": "default",
+  "status": "completed",
+  "store": true,
+  "usage": {
+    "input_tokens": 2181,
+    "input_tokens_details": {
+      "audio_tokens": 1938,
+      "cached_tokens": 0
+    },
+    "output_tokens": 1119,
+    "output_tokens_details": {
+      "reasoning_tokens": 890
+    },
+    "total_tokens": 3300
+  }
+}
