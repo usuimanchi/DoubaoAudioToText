@@ -1,6 +1,6 @@
 [package]
 name = "volc_auc_batch_client"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "多提供商语音转文本批量客户端 —— 音频检查/转换/切分 + 批量提交与结果轮询。支持火山引擎（豆包）和 Azure Speech-to-Text。"
 

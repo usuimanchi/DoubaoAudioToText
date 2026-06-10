@@ -589,6 +589,7 @@ async fn run_pipeline<B: TranscriptionBackend>(
 }
 
 fn print_banner() {
+    println!("{}  ·  doubao-seed-2-0-lite (Ark) | --help", env!("GIT_VERSION"));
     let lang = detect_system_lang();
     let banner = match lang {
         "fr" => r#"
