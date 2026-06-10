@@ -314,8 +314,9 @@ pub async fn split_audio(
     fs::create_dir_all(&base)?;
 
     let segment_secs = cfg.max_duration_secs as f64;
+    let overlap_secs = 5.0; // 每段前后重叠 5 秒，用于合并去重
     let total_segments = (duration / segment_secs).ceil() as u32;
-    println!("   🔪 切分为最多 {} 段（每段 ≤ {} 秒）", total_segments, segment_secs);
+    println!("   🔪 切分为最多 {} 段（每段 ≤ {} 秒，重叠 {} 秒）", total_segments, segment_secs, overlap_secs);
 
     let pb = ProgressBar::new(total_segments as u64);
     pb.set_style(
@@ -335,12 +336,16 @@ pub async fn split_audio(
     };
 
     while start < duration {
+        let remaining = duration - start;
+        if remaining < 1.0 { break; } // 剩余不足 1 秒，跳过
+        let this_duration = (segment_secs + overlap_secs).min(remaining);
+
         let out_path = base.join(format!("part_{:04}.{ext}", idx));
 
         let mut cmd = Command::new("ffmpeg");
         cmd.arg("-y").arg("-i").arg(src)
             .arg("-ss").arg(format!("{start}"))
-            .arg("-t").arg(format!("{segment_secs}"))
+            .arg("-t").arg(format!("{this_duration}"))
             .arg("-ac").arg("1")
             .arg("-ar").arg(meta.sample_rate.to_string())
             .arg("-c:a").arg(enc)

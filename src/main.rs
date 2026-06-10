@@ -577,22 +577,59 @@ async fn run_pipeline<B: TranscriptionBackend>(
 }
 
 fn merge_chunk_results(summary: &PersistedSummary, output_dir: &std::path::PathBuf) -> Result<String> {
-    let mut merged = String::new();
-    merged.push_str("# 合并转写结果\n\n");
-    for (i, s) in summary.submitted.iter().enumerate() {
-        merged.push_str(&format!("## 片段 {}\n\n", i + 1));
-        if let Some(ref t) = s.result_text {
-            merged.push_str(t);
-        } else if let Some(ref p) = s.result_json_path {
+    // 收集所有片段文本
+    let texts: Vec<String> = summary.submitted.iter().enumerate().map(|(i, s)| {
+        if let Some(ref t) = s.result_text { return t.clone(); }
+        if let Some(ref p) = s.result_json_path {
             if let Ok(raw) = std::fs::read_to_string(p) {
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&raw) {
-                    if let Some(t) = crate::ark::extract_text_from_response(&val) {
-                        merged.push_str(&t);
-    }}}
+                    if let Some(t) = crate::ark::extract_text_from_response(&val) { return t; }
+                }
+            }
         }
-        merged.push_str("\n\n---\n\n");
+        String::new()
+    }).collect();
+
+    if texts.is_empty() { return Ok(String::new()); }
+    if texts.len() == 1 { return Ok(texts[0].clone()); }
+
+    let mut merged = texts[0].clone();
+    for i in 1..texts.len() {
+        let (trimmed, overlap) = dedup_overlap(&merged, &texts[i]);
+        merged = trimmed;
+        merged.push_str("\n\n");
+        merged.push_str(&texts[i][overlap..]);
     }
+
     Ok(merged)
+}
+
+/// 找两段文本的重叠部分。返回 (trimmed_prev, overlap_len)。
+/// overlap_len 是 next 中应跳过的字符数。
+fn dedup_overlap(prev: &str, next: &str) -> (String, usize) {
+    let tail = prev.chars().rev().take(150).collect::<Vec<_>>().into_iter().rev().collect::<String>();
+    let head: String = next.chars().take(150).collect();
+
+    if tail.is_empty() || head.is_empty() { return (prev.to_string(), 0); }
+
+    // 找 tail 的每个后缀是否等于 head 的对应前缀（最长匹配）
+    let mut best = 0usize;
+    for len in (10..=tail.chars().count().min(head.chars().count())).rev() {
+        let tail_suffix: String = tail.chars().rev().take(len).collect::<Vec<_>>().into_iter().rev().collect();
+        let head_prefix: String = head.chars().take(len).collect();
+        if tail_suffix == head_prefix {
+            best = len;
+            break;
+        }
+    }
+
+    if best < 15 {
+        // 重叠太短，不去重
+        return (prev.to_string(), 0);
+    }
+
+    let without_overlap: String = prev.chars().take(prev.chars().count() - best).collect();
+    (without_overlap, best)
 }
 
 // ===========================================================================
