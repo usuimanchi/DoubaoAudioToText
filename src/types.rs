@@ -10,8 +10,8 @@ use std::path::PathBuf;
 pub const DEFAULT_RESOURCE_ID: &str = "seedasr";
 pub const DEFAULT_OUTPUT_DIR: &str = "./auc_output";
 pub const DEFAULT_POLL_INTERVAL_SECS: u64 = 5;
-pub const DEFAULT_MAX_DURATION_SECS: u64 = 30 * 60; // 30 分钟
-pub const DEFAULT_MAX_SIZE_BYTES: u64 = 512 * 1024 * 1024; // 512 MB
+pub const DEFAULT_MAX_DURATION_SECS: u64 = 7200;       // Ark lite: 120 分钟
+pub const DEFAULT_MAX_SIZE_BYTES: u64 = 25 * 1024 * 1024; // Ark lite: 25 MB (URL 方式限制)
 pub const DEFAULT_RECURSIVE_DEPTH: u32 = 3;
 
 /// 支持的音频容器格式（API 文档：raw / wav / mp3 / ogg）

@@ -592,64 +592,79 @@ fn print_banner() {
     let lang = detect_system_lang();
     let banner = match lang {
         "fr" => r#"
-╔══════════════════════════════════════════════════════════╗
-║     Volc AUC Batch Client — Transcription Audio       ║
-║     Fournisseur par défaut : Ark (doubao-seed-2-0-lite)║
-╠══════════════════════════════════════════════════════════╣
-║ Usage :                                                ║
-║   --api-key <KEY>     Clé API (obligatoire)           ║
-║   --inputs <FICHIER>  Fichier audio ou URL             ║
-║   --tos-ak <AK>       TOS Access Key (pour locale)     ║
-║   --tos-sk <SK>       TOS Secret Key                   ║
-║   --provider <NOM>    ark | las | volcengine | azure  ║
-╠══════════════════════════════════════════════════════════╣
-║ Exemple :                                               ║
-║   volc_auc_batch_client --api-key "ark-..." \           ║
-║     --tos-ak "AKLT..." --tos-sk "..." \                 ║
-║     --inputs "audio.m4a"                                ║
-╠══════════════════════════════════════════════════════════╣
-║ --help pour la liste complète des paramètres            ║
-╚══════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║       Volc AUC Batch Client — Transcription Audio              ║
+║       Modèle par défaut : doubao-seed-2-0-lite (Ark)           ║
+╠══════════════════════════════════════════════════════════════════╣
+║ Paramètres principaux :                                         ║
+║   --api-key <KEY>        Clé API (obligatoire)                 ║
+║   --inputs <FICHIERS>    Fichier(s) audio ou URL               ║
+║   --tos-ak <AK>          TOS Access Key                        ║
+║   --tos-sk <SK>          TOS Secret Key                        ║
+║   --tos-bucket <NOM>     TOS bucket (défaut: amamizu-oss)      ║
+║   --provider <NOM>       ark | las | volcengine | azure        ║
+║   --language <CODE>      Langue (ex: fr-FR, zh-CN)             ║
+║   --ark-model <NOM>      Modèle Ark (défaut: lite)             ║
+║   --prepare-only         Vérifier sans soumettre               ║
+║   --output-dir <DOSSIER> Dossier de sortie                     ║
+╠══════════════════════════════════════════════════════════════════╣
+║ Exemple :                                                       ║
+║   volc_auc_batch_client --api-key "ark-..." \                   ║
+║     --tos-ak "AKLT..." --tos-sk "..." --tos-bucket amamizu-oss \║
+║     --inputs "audio.m4a"                                        ║
+╠══════════════════════════════════════════════════════════════════╣
+║ --help pour la liste complète des paramètres                    ║
+╚══════════════════════════════════════════════════════════════════╝
 "#,
         "en" => r#"
-╔══════════════════════════════════════════════════════════╗
-║     Volc AUC Batch Client — Audio Transcription       ║
-║     Default provider: Ark (doubao-seed-2-0-lite)       ║
-╠══════════════════════════════════════════════════════════╣
-║ Usage:                                                  ║
-║   --api-key <KEY>     API Key (required)               ║
-║   --inputs <FILE>     Audio file path or URL            ║
-║   --tos-ak <AK>       TOS Access Key (for local files)  ║
-║   --tos-sk <SK>       TOS Secret Key                   ║
-║   --provider <NAME>   ark | las | volcengine | azure  ║
-╠══════════════════════════════════════════════════════════╣
-║ Example:                                                ║
-║   volc_auc_batch_client --api-key "ark-..." \           ║
-║     --tos-ak "AKLT..." --tos-sk "..." \                 ║
-║     --inputs "audio.m4a"                                ║
-╠══════════════════════════════════════════════════════════╣
-║ --help for full parameter list                          ║
-╚══════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║       Volc AUC Batch Client — Audio Transcription              ║
+║       Default model: doubao-seed-2-0-lite (Ark)                ║
+╠══════════════════════════════════════════════════════════════════╣
+║ Main parameters:                                                ║
+║   --api-key <KEY>        API Key (required)                    ║
+║   --inputs <FILES>       Audio file(s) or URL                  ║
+║   --tos-ak <AK>          TOS Access Key                        ║
+║   --tos-sk <SK>          TOS Secret Key                        ║
+║   --tos-bucket <NAME>    TOS bucket (default: amamizu-oss)      ║
+║   --provider <NAME>      ark | las | volcengine | azure        ║
+║   --language <CODE>      Language (e.g. fr-FR, zh-CN)          ║
+║   --ark-model <NAME>     Ark model (default: lite)              ║
+║   --prepare-only         Check/convert without submitting       ║
+║   --output-dir <DIR>     Output directory                      ║
+╠══════════════════════════════════════════════════════════════════╣
+║ Example:                                                        ║
+║   volc_auc_batch_client --api-key "ark-..." \                   ║
+║     --tos-ak "AKLT..." --tos-sk "..." --tos-bucket amamizu-oss \║
+║     --inputs "audio.m4a"                                        ║
+╠══════════════════════════════════════════════════════════════════╣
+║ --help for full parameter list                                  ║
+╚══════════════════════════════════════════════════════════════════╝
 "#,
         _ => r#"
-╔══════════════════════════════════════════════════════════╗
-║     Volc AUC Batch Client — 语音转文本批量客户端       ║
-║     默认提供商: Ark 方舟 (doubao-seed-2-0-lite)         ║
-╠══════════════════════════════════════════════════════════╣
-║ 用法:                                                   ║
-║   --api-key <KEY>     API Key (必填)                   ║
-║   --inputs <FILE>     音频文件路径或 URL                ║
-║   --tos-ak <AK>       TOS Access Key (本地文件需要)     ║
-║   --tos-sk <SK>       TOS Secret Key                   ║
-║   --provider <NAME>   ark | las | volcengine | azure  ║
-╠══════════════════════════════════════════════════════════╣
-║ 示例:                                                   ║
-║   volc_auc_batch_client --api-key "ark-..." \           ║
-║     --tos-ak "AKLT..." --tos-sk "..." \                 ║
-║     --inputs "audio.m4a"                                ║
-╠══════════════════════════════════════════════════════════╣
-║ --help 查看完整参数列表                                 ║
-╚══════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║       Volc AUC Batch Client — 语音转文本批量客户端             ║
+║       默认模型: doubao-seed-2-0-lite (Ark 方舟)                 ║
+╠══════════════════════════════════════════════════════════════════╣
+║ 主要参数:                                                       ║
+║   --api-key <KEY>        API Key (必填)                        ║
+║   --inputs <FILES>       音频文件路径或 URL (可多个)            ║
+║   --tos-ak <AK>          TOS Access Key (本地文件自动上传必填)  ║
+║   --tos-sk <SK>          TOS Secret Key                        ║
+║   --tos-bucket <NAME>    TOS 桶名 (默认: amamizu-oss)           ║
+║   --provider <NAME>      ark | las | volcengine | azure        ║
+║   --language <CODE>      识别语言 (如 fr-FR, zh-CN)            ║
+║   --ark-model <NAME>     Ark 模型 (默认: lite)                  ║
+║   --prepare-only         仅检查转换, 不提交                     ║
+║   --output-dir <DIR>     输出目录 (本地文件默认源目录)           ║
+╠══════════════════════════════════════════════════════════════════╣
+║ 示例:                                                           ║
+║   volc_auc_batch_client --api-key "ark-..." \                   ║
+║     --tos-ak "AKLT..." --tos-sk "..." --tos-bucket amamizu-oss \║
+║     --inputs "audio.m4a"                                        ║
+╠══════════════════════════════════════════════════════════════════╣
+║ --help 查看完整参数列表                                         ║
+╚══════════════════════════════════════════════════════════════════╝
 "#,
     };
     println!("{banner}");
@@ -872,7 +887,7 @@ async fn build_config(cli: Cli) -> Result<Config> {
         return Err(anyhow!("Azure 提供商需要 --azure-region"));
     }
 
-    // LAS 算子不限大小和时长，无需切分
+    // LAS 算子不限大小和时长；Ark 用预设默认值（120min/25MB）
     let (max_duration_secs, max_size_bytes) = if provider == Provider::Las {
         (u64::MAX, u64::MAX)
     } else {
