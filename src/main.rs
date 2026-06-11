@@ -355,9 +355,21 @@ async fn run_pipeline<B: TranscriptionBackend>(
         println!("\n{}", "═".repeat(60));
         println!("📥  处理输入: {input_str}");
 
-        // 0) 本地文件 → 输出到源文件所在目录
+        // 0) 输出目录：本地文件 → 源目录；tos:// → 镜像 TOS 路径
         let p = std::path::PathBuf::from(input_str);
-        if p.exists() && config.output_dir == std::path::PathBuf::from(DEFAULT_OUTPUT_DIR) {
+        if input_str.starts_with("tos://") && config.output_dir == std::path::PathBuf::from(DEFAULT_OUTPUT_DIR) {
+            // tos://bucket/path/to/file.mp3 → ./result/path/to/
+            let tos_path = input_str
+                .strip_prefix("tos://")
+                .and_then(|s| s.splitn(2, '/').nth(1)) // skip bucket name
+                .and_then(|s| {
+                    let p = std::path::Path::new(s);
+                    p.parent().map(|parent| parent.to_path_buf())
+                });
+            if let Some(tos_dir) = tos_path {
+                config.output_dir = std::path::PathBuf::from(DEFAULT_OUTPUT_DIR).join(&tos_dir);
+            }
+        } else if p.exists() && config.output_dir == std::path::PathBuf::from(DEFAULT_OUTPUT_DIR) {
             if let Some(parent) = p.parent() {
                 config.output_dir = parent.to_path_buf();
                 println!("   📂 输出目录: {}", config.output_dir.display());
