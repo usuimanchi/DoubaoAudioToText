@@ -642,9 +642,13 @@ fn print_banner() {
 ║   --prepare-only         Vérifier sans soumettre               ║
 ║   --output-dir <DOSSIER> Sortie (répertoire source si local)    ║
 ╠══════════════════════════════════════════════════════════════════╣
-║ Exemple :                                                       ║
-║   volc_auc_batch_client --provider ark --api-key "ark-..." \    ║
-║     --tos-ak "AKLT..." --tos-sk "..." --tos-bucket my-bucket \║
+║ Exemple (URL) :                                                  ║
+║   volc_auc_batch_client --api-key "ark-..." \                   ║
+║     --inputs "https://exemple.com/audio.m4a"                    ║
+║                                                                ║
+║ Exemple (fichier local) :                                       ║
+║   volc_auc_batch_client --api-key "ark-..." \                   ║
+║     --tos-ak "AKLT..." --tos-sk "..." \                         ║
 ║     --inputs "C:\Audio\exemple.m4a"                              ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║ --help pour la liste complète des paramètres                    ║
@@ -667,9 +671,13 @@ fn print_banner() {
 ║   --prepare-only         Check/convert without submitting       ║
 ║   --output-dir <DIR>     Output (same as source for local files) ║
 ╠══════════════════════════════════════════════════════════════════╣
-║ Example:                                                        ║
-║   volc_auc_batch_client --provider ark --api-key "ark-..." \    ║
-║     --tos-ak "AKLT..." --tos-sk "..." --tos-bucket my-bucket \║
+║ Example (URL):                                                  ║
+║   volc_auc_batch_client --api-key "ark-..." \                   ║
+║     --inputs "https://example.com/audio.m4a"                    ║
+║                                                                ║
+║ Example (local file):                                           ║
+║   volc_auc_batch_client --api-key "ark-..." \                   ║
+║     --tos-ak "AKLT..." --tos-sk "..." \                         ║
 ║     --inputs "C:\Audio\sample.m4a"                               ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║ --help for full parameter list                                  ║
@@ -692,9 +700,14 @@ fn print_banner() {
 ║   --prepare-only         仅检查转换, 不提交                     ║
 ║   --output-dir <DIR>     输出目录 (本地文件默认音频同目录输出)   ║
 ╠══════════════════════════════════════════════════════════════════╣
-║ 示例:                                                           ║
+║ 示例 (网络URL):                                                 ║
 ║   volc_auc_batch_client --api-key "ark-..." \                   ║
 ║     --inputs "https://example.com/audio.m4a"                    ║
+║                                                                ║
+║ 示例 (本地文件):                                                 ║
+║   volc_auc_batch_client --api-key "ark-..." \                   ║
+║     --tos-ak "AKLT..." --tos-sk "..." \                         ║
+║     --inputs "E:\我的音频\示例音频.m4a"                           ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║ --help 查看完整参数列表                                         ║
 ╚══════════════════════════════════════════════════════════════════╝
