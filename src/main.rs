@@ -522,7 +522,7 @@ async fn run_pipeline<B: TranscriptionBackend>(
             if audio_input.is_url {
                 println!("   ⚠️  该输入为 URL，但音频需要转换/切分。");
                 println!("   💡 原始 URL 指向的是未处理的音频，无法用于提交已处理的本地副本。");
-                println!("   💡 请将 ./auc_output/prepared/ 下处理好的文件上传到可公网访问的服务器，");
+                println!("   💡 请将 ./result/prepared/ 下处理好的文件上传到可公网访问的服务器，");
                 println!("   💡 然后以新 URL 重新运行本程序。");
             } else {
                 println!("   ⚠️  该输入为本地文件，无可提交的 URL，跳过 API 提交。");
@@ -612,10 +612,10 @@ async fn run_pipeline<B: TranscriptionBackend>(
     // 合并分片结果
     for summary in &all_summaries {
         if summary.submitted.len() > 1 {
-            let merged = merge_chunk_results(summary, &config.output_dir);
+            let merged = merge_chunk_results(summary);
             match merged {
                 Ok(text) => {
-                    let merged_path = config.output_dir.join("result_merged.txt");
+                    let merged_path = config.output_dir.join("result.txt");
                     fs::write(&merged_path, &text)?;
                     println!("   📝 合并文本已保存: {}", merged_path.display());
                     println!("   总字数: {} 字", text.chars().count());
@@ -760,9 +760,9 @@ fn detect_system_lang() -> &'static str {
     "zh"
 }
 
-fn merge_chunk_results(summary: &PersistedSummary, output_dir: &std::path::PathBuf) -> Result<String> {
+fn merge_chunk_results(summary: &PersistedSummary) -> Result<String> {
     // 收集所有片段文本
-    let texts: Vec<String> = summary.submitted.iter().enumerate().map(|(i, s)| {
+    let texts: Vec<String> = summary.submitted.iter().map(|s| {
         if let Some(ref t) = s.result_text { return t.clone(); }
         if let Some(ref p) = s.result_json_path {
             if let Ok(raw) = std::fs::read_to_string(p) {

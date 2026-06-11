@@ -65,11 +65,9 @@ M4A → ffprobe 探测 → ffmpeg 转 MP3 → 超限则切分(重叠10s) → TOS
 ```
 
 输出：
-- `result.txt` — 纯文本
-- `result.srt` — 字幕文件
-- `result_formatted.md` — 语言分段 + 时间戳
+- `result.txt` — 纯文本（多片段自动合并去重）
+- `result.srt` — 字幕文件（仅 LAS）
 - `response.json` — API 原始响应
-- `result_merged.txt` — 多片段合并（自动去重）
 - `manifest.json` — 处理汇总
 
 ---
