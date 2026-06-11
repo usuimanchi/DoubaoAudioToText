@@ -683,7 +683,7 @@ fn print_banner() {
 ║ 主要参数:                                                       ║
 ║   --api-key <KEY>        API Key (必填)                        ║
 ║   --inputs <FILES>       音频文件路径或 URL (可多个)            ║
-║   --tos-ak <AK>          TOS Access Key (本地文件自动上传必填)  ║
+║   --tos-ak <AK>          TOS Access Key (本地文件上传时填)     ║
 ║   --tos-sk <SK>          TOS Secret Key                        ║
 ║   --tos-bucket <NAME>    TOS 桶名 (默认: amamizu-oss)           ║
 ║   --provider <NAME>      ark | las | volcengine | azure        ║
@@ -693,9 +693,8 @@ fn print_banner() {
 ║   --output-dir <DIR>     输出目录 (本地文件默认音频同目录输出)   ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║ 示例:                                                           ║
-║   volc_auc_batch_client --provider ark --api-key "ark-..." \    ║
-║     --tos-ak "AKLT..." --tos-sk "..." --tos-bucket my-bucket \║
-║     --inputs "E:\我的音频\示例音频.m4a"                           ║
+║   volc_auc_batch_client --api-key "ark-..." \                   ║
+║     --inputs "https://example.com/audio.m4a"                    ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║ --help 查看完整参数列表                                         ║
 ╚══════════════════════════════════════════════════════════════════╝
