@@ -367,7 +367,11 @@ async fn run_pipeline<B: TranscriptionBackend>(
                     p.parent().map(|parent| parent.to_path_buf())
                 });
             if let Some(tos_dir) = tos_path {
-                config.output_dir = std::path::PathBuf::from(DEFAULT_OUTPUT_DIR).join(&tos_dir);
+                let sanitized = std::path::PathBuf::from(sanitize_path(&tos_dir.to_string_lossy()));
+                config.output_dir = std::path::PathBuf::from(DEFAULT_OUTPUT_DIR).join(&sanitized);
+                fs::create_dir_all(&config.output_dir)?;
+                fs::create_dir_all(config.output_dir.join("download"))?;
+                println!("   📂 输出目录: {}", config.output_dir.display());
             }
         } else if p.exists() && config.output_dir == std::path::PathBuf::from(DEFAULT_OUTPUT_DIR) {
             if let Some(parent) = p.parent() {
@@ -729,11 +733,19 @@ fn print_banner() {
 }
 
 fn sanitize_filename(name: &str) -> String {
-    // 只替换 Windows/Mac/Linux 文件名中的非法字符，保留中法文字符
+    // 只替换 Windows/Mac/Linux 文件名和路径中的非法字符，保留中法文字符
     const ILLEGAL: &[char] = &['<', '>', ':', '"', '/', '\\', '|', '?', '*', '\0'];
     name.chars()
         .map(|c| if ILLEGAL.contains(&c) || c.is_control() { '_' } else { c })
         .collect()
+}
+
+fn sanitize_path(path: &str) -> String {
+    // rsplit the path into components, sanitize each, then rejoin
+    path.split('/')
+        .map(sanitize_filename)
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 fn detect_system_lang() -> &'static str {
