@@ -391,11 +391,12 @@ pub async fn split_audio(
 // ---------------------------------------------------------------------------
 
 pub fn file_stem(path: &Path) -> String {
-    path.file_stem()
+    let name = path.file_stem()
         .and_then(|s| s.to_str())
-        .unwrap_or("audio")
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || matches!(c, '-' | '_') { c } else { '_' })
+        .unwrap_or("audio");
+    const ILLEGAL: &[char] = &['<', '>', ':', '"', '/', '\\', '|', '?', '*', '\0'];
+    name.chars()
+        .map(|c| if ILLEGAL.contains(&c) || c.is_control() { '_' } else { c })
         .collect()
 }
 

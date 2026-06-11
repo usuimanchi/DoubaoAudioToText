@@ -365,7 +365,40 @@ async fn run_pipeline<B: TranscriptionBackend>(
         }
 
         // 1) 解析输入
-        let audio_input = input::resolve_input(input_str, &config.output_dir).await?;
+        let mut audio_input = input::resolve_input(input_str, &config.output_dir).await?;
+
+        // 1.5) tos:// 需要下载才能探测/切分
+        if input_str.starts_with("tos://") {
+            if let Some(ref tos_ak) = config.tos_ak {
+                if !tos_ak.is_empty() {
+                    if let Ok(uploader) = tos::create_tos_uploader(
+                        tos_ak, config.tos_sk.as_deref().unwrap_or(""),
+                        &config.tos_region, &config.tos_endpoint, &config.tos_bucket,
+                    ) {
+                        let key = input_str.strip_prefix(&format!("tos://{}/", config.tos_bucket)).unwrap_or("");
+                        if !key.is_empty() {
+                            let dl_path = config.output_dir.join("download").join(sanitize_filename(key));
+                            if !dl_path.exists() {
+                                println!("   ⬇️  下载 TOS 文件: {key}");
+                                match uploader.presigned_url(key, 3600).await {
+                                    Ok(ps_url) => {
+                                        if let Err(e) = input::download_url(&ps_url, &dl_path).await {
+                                            println!("   ⚠️  TOS 下载失败: {e}");
+                                        } else {
+                                            audio_input.source_path = dl_path;
+                                            audio_input.submission_url = None; // 作为本地文件重新处理
+                                        }
+                                    }
+                                    Err(e) => println!("   ⚠️  预签名失败: {e}"),
+                                }
+                            } else {
+                                audio_input.source_path = dl_path;
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // 2) 准备音频（检查/转换/切分）
         let mut prepared_chunks = audio::prepare_audio(&audio_input, config).await?;
@@ -669,6 +702,14 @@ fn print_banner() {
 "#,
     };
     println!("{banner}");
+}
+
+fn sanitize_filename(name: &str) -> String {
+    // 只替换 Windows/Mac/Linux 文件名中的非法字符，保留中法文字符
+    const ILLEGAL: &[char] = &['<', '>', ':', '"', '/', '\\', '|', '?', '*', '\0'];
+    name.chars()
+        .map(|c| if ILLEGAL.contains(&c) || c.is_control() { '_' } else { c })
+        .collect()
 }
 
 fn detect_system_lang() -> &'static str {
