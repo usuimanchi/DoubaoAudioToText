@@ -10,7 +10,7 @@ use std::path::PathBuf;
 pub const DEFAULT_RESOURCE_ID: &str = "seedasr";
 pub const DEFAULT_OUTPUT_DIR: &str = "./result";
 pub const DEFAULT_POLL_INTERVAL_SECS: u64 = 5;
-pub const DEFAULT_MAX_DURATION_SECS: u64 = 7200;        // Ark Files API 单文件限制 2h
+pub const DEFAULT_MAX_DURATION_SECS: u64 = 7170;        // Ark Files API 单文件限制 2h，留 30s 余量
 pub const DEFAULT_MAX_SIZE_BYTES: u64 = 512 * 1024 * 1024; // Files API: 512 MB
 pub const DEFAULT_RECURSIVE_DEPTH: u32 = 3;
 
