@@ -455,21 +455,22 @@ async fn run_pipeline<B: TranscriptionBackend>(
         });
     }
 
-    // 合并分片结果
+    // 输出结果（单片段直接取，多片段合并去重）
     for summary in &all_summaries {
-        if summary.submitted.len() > 1 {
-            let merged = merge_chunk_results(summary);
-            match merged {
-                Ok(text) => {
-                    // 从原始输入提取文件名，避免同一目录下多个音频互相覆盖
-                    let stem = output_stem(&summary.original_input);
-                    let merged_path = config.output_dir.join(format!("result_{stem}.txt"));
-                    fs::write(&merged_path, &text)?;
-                    println!("   📝 合并文本已保存: {}", merged_path.display());
-                    println!("   总字数: {} 字", text.chars().count());
-                }
-                Err(e) => println!("   ⚠️  合并失败: {e}"),
-            }
+        let text = if summary.submitted.len() <= 1 {
+            summary.submitted.first()
+                .and_then(|s| s.result_text.clone())
+                .unwrap_or_default()
+        } else {
+            merge_chunk_results(summary).unwrap_or_default()
+        };
+
+        if !text.is_empty() {
+            let stem = output_stem(&summary.original_input);
+            let out_path = config.output_dir.join(format!("result_{stem}.txt"));
+            let count = text.chars().count();
+            fs::write(&out_path, &text)?;
+            println!("   📝 结果已保存: {}（{} 字）", out_path.display(), count);
         }
     }
 
