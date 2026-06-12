@@ -11,10 +11,8 @@ clap = { version = "4", features = ["derive"] }
 dialoguer = "0.11"
 futures-util = "0.3"
 indicatif = "0.17"
-reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"] }
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multipart"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["v4", "serde"] }
-ve-tos-rust-sdk = { version = "2.9.2", features = ["tokio-runtime"] }
-futures-core = "0.3"

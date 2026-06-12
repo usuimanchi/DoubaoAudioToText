@@ -76,27 +76,6 @@ pub async fn prepare_audio(
     input: &crate::types::AudioInput,
     cfg: &Config,
 ) -> Result<Vec<PreparedChunk>> {
-    // tos:// URL 已上传，跳过本地探测，直接返回
-    if let Some(ref url) = input.submission_url {
-        if url.starts_with("tos://") {
-            println!("   📎 TOS URL，跳过本地探测: {url}");
-            // 从扩展名推断格式
-            let fmt = url.rsplit('.').next().unwrap_or("ogg");
-            let codec = match fmt {
-                "wav" => "raw", "mp3" => "mp3", _ => "opus",
-            };
-            return Ok(vec![PreparedChunk {
-                path: input.source_path.clone(),
-                format: fmt.to_string(),
-                codec: codec.to_string(),
-                sample_rate: 16000,
-                duration_secs: 0.0,
-                size_bytes: 0,
-                submission_url: Some(url.clone()),
-            }]);
-        }
-    }
-
     let meta = probe_audio(&input.source_path).await?;
 
     println!("   🔍 探测结果: 格式={}  编码={}  {}Hz  {}ch  {}bit  {}  {}",

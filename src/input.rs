@@ -107,16 +107,6 @@ pub async fn gather_inputs(cli_inputs: Option<Vec<String>>) -> Result<Vec<String
 // ---------------------------------------------------------------------------
 
 pub async fn resolve_input(input: &str, out_dir: &Path) -> Result<AudioInput> {
-    // TOS 内部 URL —— 直接作为提交 URL，无需下载
-    if input.starts_with("tos://") {
-        return Ok(AudioInput {
-            original: input.to_string(),
-            source_path: PathBuf::from(input),
-            is_url: true,
-            submission_url: Some(input.to_string()),
-        });
-    }
-
     // HTTP(S) URL
     if input.starts_with("http://") || input.starts_with("https://") {
         let file_name = sanitize_filename_from_url(input);

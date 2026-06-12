@@ -3,25 +3,25 @@
 //! 使用 doubao-seed-2-0-lite 的 Responses API 进行音频转写。
 //! 特点：
 //! - 同步 API，无需轮询
-//! - 中文标点 + 法语原文保留
+//! - 通过 Files API 上传音频获取 file_id（最大 512MB）
+//! - temperature=0 确保转写确定性，thinking=disabled 省钱提速
+//! - 中文标点 + 多语种原文保留
 //! - 中法自然分段
-//! - 支持 MP3/WAV/AAC/FLAC/M4A/AMR
-//! - URL 方式：≤ 25MB，≤ 120 分钟
 
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::Client;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::fs;
+use std::path::Path;
 use std::time::Instant;
 
 use crate::backend::{JobHandle, TranscriptionBackend, TranscriptionOutput};
 use crate::types::{Config, PreparedChunk, SubmittedTaskSummary, Provider};
 
 const ARK_BASE: &str = "https://ark.cn-beijing.volces.com/api/v3";
-const ARK_MODEL_DEFAULT: &str = "doubao-seed-2-0-lite-260428";
 
 const DEFAULT_PROMPT: &str = "\
 你是一个专业的多语种语音转写助手。请严格遵循以下规则转写这段音频：
@@ -30,7 +30,9 @@ const DEFAULT_PROMPT: &str = "\
 2. **中文部分**：准确转写，并添加正确的标点符号（句号、逗号、问号等）。
 3. **中法混合**：按照说话人实际使用的语言分别记录，不要混在同一段。如果一段话中同时包含中文和法语，请分开分行记录。
 4. **格式**：每个独立的语句或自然停顿处换行。如有明显的话题切换，用空行分隔。
-5. **不要添加任何解释、评论、总结或元数据**（如'这段说的是...'、'音频内容为...'）。只输出转写文本。";
+5. **不要添加任何解释、评论、总结或元数据**（如'这段说的是...'、'音频内容为...'）。只输出转写文本。
+
+以上规则以法语为例，法语、英语、德语、日语等其他非中文语言均类似。";
 
 // ---------------------------------------------------------------------------
 // Ark 请求/响应
@@ -40,6 +42,16 @@ const DEFAULT_PROMPT: &str = "\
 struct ArkRequest {
     model: String,
     input: Vec<ArkMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thinking: Option<ThinkingConfig>,
+}
+
+#[derive(Debug, Serialize)]
+struct ThinkingConfig {
+    #[serde(rename = "type")]
+    thinking_type: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -53,7 +65,7 @@ struct ArkContent {
     #[serde(rename = "type")]
     content_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    audio_url: Option<String>,
+    file_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     text: Option<String>,
 }
@@ -78,6 +90,61 @@ pub fn extract_text_from_response(raw: &Value) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+/// 通过 Files API 上传本地音频文件，返回 file_id
+async fn upload_to_files_api(client: &Client, api_key: &str, file_path: &Path) -> Result<String> {
+    let file_bytes = fs::read(file_path)
+        .with_context(|| format!("读取文件失败: {}", file_path.display()))?;
+
+    let file_name = file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("audio.mp3");
+
+    let mime = match file_path.extension().and_then(|e| e.to_str()) {
+        Some("mp3") => "audio/mpeg",
+        Some("wav") => "audio/wav",
+        Some("m4a") => "audio/m4a",
+        Some("aac") => "audio/aac",
+        _ => "audio/mpeg",
+    };
+
+    let part = reqwest::multipart::Part::bytes(file_bytes)
+        .file_name(file_name.to_string())
+        .mime_str(mime)?;
+
+    let form = reqwest::multipart::Form::new()
+        .text("purpose", "user_data")
+        .part("file", part);
+
+    let resp = client
+        .post(&format!("{ARK_BASE}/files"))
+        .header("Authorization", format!("Bearer {}", api_key))
+        .multipart(form)
+        .send()
+        .await
+        .context("Files API 上传失败")?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(anyhow!(
+            "Files API 失败 HTTP {}: {}",
+            status,
+            &body[..body.len().min(300)]
+        ));
+    }
+
+    let json: Value = resp.json().await.context("解析 Files API 响应失败")?;
+    let file_id = json
+        .get("id")
+        .and_then(|i| i.as_str())
+        .ok_or_else(|| anyhow!("Files API 未返回 file_id: {}", json))?
+        .to_string();
+
+    println!("   │  ✅ file_id: {}", file_id);
+    Ok(file_id)
+}
+
 #[async_trait]
 impl TranscriptionBackend for ArkBackend {
     fn provider_name() -> &'static str {
@@ -89,10 +156,9 @@ impl TranscriptionBackend for ArkBackend {
         config: &Config,
         chunk: &PreparedChunk,
     ) -> Result<JobHandle> {
-        let file_url = chunk
-            .submission_url
-            .as_ref()
-            .ok_or_else(|| anyhow!("Ark: 片段 {} 没有提交 URL", chunk.path.display()))?;
+        // 通过 Files API 上传音频，获取 file_id
+        println!("   📤 上传到 Files API: {}", chunk.path.display());
+        let file_id = upload_to_files_api(client, &config.api_key, &chunk.path).await?;
 
         let prompt = config
             .corpus_context
@@ -101,17 +167,21 @@ impl TranscriptionBackend for ArkBackend {
 
         let request = ArkRequest {
             model: config.ark_model.clone(),
+            temperature: Some(0.0),
+            thinking: Some(ThinkingConfig {
+                thinking_type: "disabled".to_string(),
+            }),
             input: vec![ArkMessage {
                 role: "user".to_string(),
                 content: vec![
                     ArkContent {
                         content_type: "input_audio".to_string(),
-                        audio_url: Some(file_url.clone()),
+                        file_id: Some(file_id),
                         text: None,
                     },
                     ArkContent {
                         content_type: "input_text".to_string(),
-                        audio_url: None,
+                        file_id: None,
                         text: Some(prompt.to_string()),
                     },
                 ],
@@ -182,7 +252,6 @@ impl TranscriptionBackend for ArkBackend {
             let txt_path = result_dir.join("result.txt");
             fs::write(&txt_path, t)?;
             println!("   📝 文本已保存: {}", txt_path.display());
-
         }
 
         Ok(JobHandle {
@@ -237,8 +306,3 @@ impl TranscriptionBackend for ArkBackend {
         })
     }
 }
-
-// ---------------------------------------------------------------------------
-// 后处理
-// ---------------------------------------------------------------------------
-

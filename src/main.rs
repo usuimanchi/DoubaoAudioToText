@@ -31,7 +31,7 @@ mod backend;
 mod input;
 mod las;
 mod output;
-mod tos;
+
 mod types;
 mod volcengine;
 
@@ -83,31 +83,6 @@ struct Cli {
     /// 旧版控制台 Access Key
     #[arg(long, help = "旧版控制台 Access Key")]
     access_key: Option<String>,
-
-    // ---- TOS 对象存储（本地文件自动上传）----
-    /// TOS Access Key ID（环境变量: TOS_ACCESS_KEY）
-    #[arg(long, help = "TOS: Access Key ID")]
-    tos_ak: Option<String>,
-
-    /// TOS Secret Access Key（环境变量: TOS_SECRET_KEY）
-    #[arg(long, help = "TOS: Secret Access Key")]
-    tos_sk: Option<String>,
-
-    /// TOS 存储桶名称
-    #[arg(long, default_value = "amamizu-oss", help = "TOS: 存储桶名称")]
-    tos_bucket: String,
-
-    /// TOS 访问域名（不含 https://）
-    #[arg(long, default_value = "tos-cn-beijing.volces.com", help = "TOS: 域名")]
-    tos_endpoint: String,
-
-    /// TOS 区域
-    #[arg(long, default_value = "cn-beijing", help = "TOS: 区域")]
-    tos_region: String,
-
-    /// TOS 上传路径前缀（不含文件名），如 "las-audio/"
-    #[arg(long, help = "TOS: 上传路径前缀")]
-    tos_key_prefix: Option<String>,
 
     // ---- Azure 认证 ----
     /// Azure Speech 资源的订阅密钥（Ocp-Apim-Subscription-Key）
@@ -355,25 +330,9 @@ async fn run_pipeline<B: TranscriptionBackend>(
         println!("\n{}", "═".repeat(60));
         println!("📥  处理输入: {input_str}");
 
-        // 0) 输出目录：本地文件 → 源目录；tos:// → 镜像 TOS 路径
+        // 0) 输出目录：本地文件 → 源目录
         let p = std::path::PathBuf::from(input_str);
-        if input_str.starts_with("tos://") && config.output_dir == std::path::PathBuf::from(DEFAULT_OUTPUT_DIR) {
-            // tos://bucket/path/to/file.mp3 → ./result/path/to/
-            let tos_path = input_str
-                .strip_prefix("tos://")
-                .and_then(|s| s.splitn(2, '/').nth(1)) // skip bucket name
-                .and_then(|s| {
-                    let p = std::path::Path::new(s);
-                    p.parent().map(|parent| parent.to_path_buf())
-                });
-            if let Some(tos_dir) = tos_path {
-                let sanitized = std::path::PathBuf::from(sanitize_path(&tos_dir.to_string_lossy()));
-                config.output_dir = std::path::PathBuf::from(DEFAULT_OUTPUT_DIR).join(&sanitized);
-                fs::create_dir_all(&config.output_dir)?;
-                fs::create_dir_all(config.output_dir.join("download"))?;
-                println!("   📂 输出目录: {}", config.output_dir.display());
-            }
-        } else if p.exists() && config.output_dir == std::path::PathBuf::from(DEFAULT_OUTPUT_DIR) {
+        if p.exists() && config.output_dir == std::path::PathBuf::from(DEFAULT_OUTPUT_DIR) {
             if let Some(parent) = p.parent() {
                 config.output_dir = parent.to_path_buf();
                 println!("   📂 输出目录: {}", config.output_dir.display());
@@ -383,159 +342,39 @@ async fn run_pipeline<B: TranscriptionBackend>(
         // 1) 解析输入
         let mut audio_input = input::resolve_input(input_str, &config.output_dir).await?;
 
-        // 1.5) tos:// 需要下载才能探测/切分
-        if input_str.starts_with("tos://") {
-            if let Some(ref tos_ak) = config.tos_ak {
-                if !tos_ak.is_empty() {
-                    if let Ok(uploader) = tos::create_tos_uploader(
-                        tos_ak, config.tos_sk.as_deref().unwrap_or(""),
-                        &config.tos_region, &config.tos_endpoint, &config.tos_bucket,
-                    ) {
-                        let key = input_str.strip_prefix(&format!("tos://{}/", config.tos_bucket)).unwrap_or("");
-                        if !key.is_empty() {
-                            let dl_path = config.output_dir.join("download").join(sanitize_filename(key));
-                            if !dl_path.exists() {
-                                println!("   ⬇️  下载 TOS 文件: {key}");
-                                match uploader.presigned_url(key, 3600).await {
-                                    Ok(ps_url) => {
-                                        if let Err(e) = input::download_url(&ps_url, &dl_path).await {
-                                            let err_msg = format!("{e}");
-                                            if err_msg.contains("404") {
-                                                println!("   ⚠️  TOS 下载失败 (404): 文件未找到。");
-                                                println!("   💡 提示: 若路径含特殊 Unicode 字符（如弯引号 \\u201c \\u201d），");
-                                                println!("         建议将 URL 写入文本文件，通过 --inputs file.txt 传入。");
-                                            } else {
-                                                println!("   ⚠️  TOS 下载失败: {err_msg}");
-                                            }
-                                        } else {
-                                            audio_input.source_path = dl_path;
-                                            audio_input.submission_url = None; // 作为本地文件重新处理
-                                        }
-                                    }
-                                    Err(e) => println!("   ⚠️  预签名失败: {e}"),
-                                }
-                            } else {
-                                audio_input.source_path = dl_path;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         // 2) 准备音频（检查/转换/切分）
         let mut prepared_chunks = audio::prepare_audio(&audio_input, config).await?;
         total_prepared += prepared_chunks.len();
-
-        // 2.5) TOS 上传：本地文件自动上传到 TOS 获得 URL
-        if let Some(ref tos_ak) = config.tos_ak {
-            if !tos_ak.is_empty() {
-                let tos_uploader = tos::create_tos_uploader(
-                    tos_ak,
-                    config.tos_sk.as_deref().unwrap_or(""),
-                    &config.tos_region,
-                    &config.tos_endpoint,
-                    &config.tos_bucket,
-                );
-                match tos_uploader {
-                    Ok(uploader) => {
-                        let prefix = config.tos_key_prefix.as_deref().unwrap_or("");
-                        for chunk in &mut prepared_chunks {
-                            if chunk.submission_url.is_some() {
-                                continue; // 已有 URL，跳过
-                            }
-                            let file_name = chunk.path.file_name()
-                                .and_then(|n| n.to_str())
-                                .unwrap_or("audio.bin");
-                            let remote_key = format!("{prefix}{file_name}");
-                            println!("   📤 上传到 TOS: {} → tos://{}/{}", file_name, config.tos_bucket, remote_key);
-                            match uploader.upload_file(&chunk.path, &remote_key).await {
-                                Ok(result) => {
-                                    // 优先使用 tos:// 内网 URL（LAS 和 bigmodel 都支持）
-                                    chunk.submission_url = Some(result.tos_url.clone());
-                                    println!("   │  ✅ TOS URL: {}", result.tos_url);
-                                    // bigmodel 旧 API 需要 HTTPS，生成预签名 URL 备用
-                                    if config.provider == Provider::Volcengine || config.provider == Provider::Ark {
-                                        match uploader.presigned_url(&remote_key, 86400).await {
-                                            Ok(ps_url) => {
-                                                chunk.submission_url = Some(ps_url);
-                                                println!("   │  🔗 预签名 URL (HTTPS)");
-                                            }
-                                            Err(e) => println!("   │  ⚠️  预签名失败: {e}"),
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    println!("   │  ⚠️  TOS 上传失败: {e}");
-                                }
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        println!("   ⚠️  TOS 客户端初始化失败: {e}");
-                    }
-                }
-            }
-        }
 
         // 输出摘要
         println!("   ┌─ 准备就绪: {} 个片段", prepared_chunks.len());
         for (i, c) in prepared_chunks.iter().enumerate() {
             let dur = audio::format_duration(c.duration_secs);
             let sz = audio::format_size(c.size_bytes);
-            let url_info = c.submission_url.as_deref().unwrap_or("（无可提交 URL）");
             println!(
-                "   │  [{i}] {dur}  {sz}  格式={} 编码={}  URL={url_info}",
+                "   │  [{i}] {dur}  {sz}  格式={} 编码={}",
                 c.format, c.codec
             );
         }
 
-        // 2.6) bigmodel 旧 API 需要 HTTPS，tos:// → 预签名 URL
-        if config.provider == Provider::Volcengine || config.provider == Provider::Ark {
-            if let Some(ref tos_ak) = config.tos_ak {
-                if !tos_ak.is_empty() {
-                    if let Ok(uploader) = tos::create_tos_uploader(
-                        tos_ak, config.tos_sk.as_deref().unwrap_or(""),
-                        &config.tos_region, &config.tos_endpoint, &config.tos_bucket,
-                    ) {
-                        for chunk in &mut prepared_chunks {
-                            if let Some(ref url) = chunk.submission_url {
-                                if url.starts_with("tos://") {
-                                    let key = url.strip_prefix(&format!("tos://{}/", config.tos_bucket)).unwrap_or("");
-                                    if !key.is_empty() {
-                                        println!("   🔗 生成预签名 URL: {key}");
-                                        match uploader.presigned_url(key, 86400).await {
-                                            Ok(ps) => { println!("   🔗 预签名: {ps}"); chunk.submission_url = Some(ps); }
-                                            Err(e) => println!("   ⚠️  预签名失败: {e}"),
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 3) 筛选可提交片段
-        let submittable: Vec<&PreparedChunk> = prepared_chunks
-            .iter()
-            .filter(|c| c.submission_url.is_some())
-            .collect();
+        // 3) 筛选可提交片段（Ark 通过 Files API 上传，不需要预置 URL）
+        let submittable: Vec<&PreparedChunk> = if config.provider == Provider::Ark {
+            prepared_chunks.iter().collect()
+        } else {
+            prepared_chunks
+                .iter()
+                .filter(|c| c.submission_url.is_some())
+                .collect()
+        };
 
         let mut submitted_summaries: Vec<SubmittedTaskSummary> = Vec::new();
 
         if submittable.is_empty() {
-            if audio_input.is_url {
-                println!("   ⚠️  该输入为 URL，但音频需要转换/切分。");
-                println!("   💡 原始 URL 指向的是未处理的音频，无法用于提交已处理的本地副本。");
-                println!("   💡 请将 ./result/prepared/ 下处理好的文件上传到可公网访问的服务器，");
-                println!("   💡 然后以新 URL 重新运行本程序。");
+            if !audio_input.is_url {
+                println!("   ⚠️  本地文件无可提交的 URL，请使用 Ark 提供商以通过 Files API 提交。");
             } else {
-                println!("   ⚠️  该输入为本地文件，无可提交的 URL，跳过 API 提交。");
-                if config.tos_ak.as_ref().map(|s| s.is_empty()).unwrap_or(true) {
-                    println!("   💡 提示：配置 --tos-ak 和 --tos-sk 可自动上传到 TOS 并获取 URL。");
-                }
+                println!("   ⚠️  该输入为 URL，但音频需要转换/切分，无法用于提交已处理的本地副本。");
+                println!("   💡 建议使用 Ark 提供商（默认），通过 Files API 直接提交。");
             }
         } else if config.prepare_only {
             println!(
@@ -658,9 +497,6 @@ fn print_banner() {
 ║ Paramètres principaux :                                         ║
 ║   --api-key <KEY>        Clé API (obligatoire)                 ║
 ║   --inputs <FICHIERS>    Fichier(s) audio ou URL               ║
-║   --tos-ak <AK>          TOS Access Key                        ║
-║   --tos-sk <SK>          TOS Secret Key                        ║
-║   --tos-bucket <NOM>     TOS bucket (défaut: amamizu-oss)      ║
 ║   --provider <NOM>       ark | las | volcengine | azure        ║
 ║   --language <CODE>      Langue (ex: fr-FR, zh-CN, défaut auto) ║
 ║   --ark-model <NOM>      Modèle Ark: lite / mini / pro          ║
@@ -673,7 +509,6 @@ fn print_banner() {
 ║                                                                ║
 ║ Exemple (fichier local) :                                       ║
 ║   volc_auc_batch_client --api-key "ark-..." \                   ║
-║     --tos-ak "AKLT..." --tos-sk "..." \                         ║
 ║     --inputs "C:\Audio\exemple.m4a"                              ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║ --help pour la liste complète des paramètres                    ║
@@ -687,9 +522,6 @@ fn print_banner() {
 ║ Main parameters:                                                ║
 ║   --api-key <KEY>        API Key (required)                    ║
 ║   --inputs <FILES>       Audio file(s) or URL                  ║
-║   --tos-ak <AK>          TOS Access Key                        ║
-║   --tos-sk <SK>          TOS Secret Key                        ║
-║   --tos-bucket <NAME>    TOS bucket (default: amamizu-oss)      ║
 ║   --provider <NAME>      ark | las | volcengine | azure        ║
 ║   --language <CODE>      Language (e.g. fr-FR, zh-CN, default auto)║
 ║   --ark-model <NAME>     Ark model: lite / mini / pro            ║
@@ -702,7 +534,6 @@ fn print_banner() {
 ║                                                                ║
 ║ Example (local file):                                           ║
 ║   volc_auc_batch_client --api-key "ark-..." \                   ║
-║     --tos-ak "AKLT..." --tos-sk "..." \                         ║
 ║     --inputs "C:\Audio\sample.m4a"                               ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║ --help for full parameter list                                  ║
@@ -716,9 +547,6 @@ fn print_banner() {
 ║ 主要参数:                                                       ║
 ║   --api-key <KEY>        API Key (必填)                        ║
 ║   --inputs <FILES>       音频文件路径或 URL (可多个)            ║
-║   --tos-ak <AK>          TOS Access Key (本地文件上传时填)     ║
-║   --tos-sk <SK>          TOS Secret Key                        ║
-║   --tos-bucket <NAME>    TOS 桶名 (默认: amamizu-oss)           ║
 ║   --provider <NAME>      ark | las | volcengine | azure        ║
 ║   --language <CODE>      识别语言 (如 fr-FR, zh-CN, 默认 auto) ║
 ║   --ark-model <NAME>     Ark 模型: lite / mini / pro            ║
@@ -731,7 +559,6 @@ fn print_banner() {
 ║                                                                ║
 ║ 示例 (本地文件):                                                 ║
 ║   volc_auc_batch_client --api-key "ark-..." \                   ║
-║     --tos-ak "AKLT..." --tos-sk "..." \                         ║
 ║     --inputs "E:\我的音频\示例音频.m4a"                           ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║ --help 查看完整参数列表                                         ║
@@ -929,24 +756,6 @@ async fn build_config(cli: Cli) -> Result<Config> {
             (key, None, None)
         };
 
-    // === 第 3 步：TOS 配置（Ark/LAS/Volcengine 本地文件上传需要）===
-    let (tos_ak, tos_sk, tos_bucket) = if provider != Provider::Azure && is_interactive {
-        if cli.tos_ak.is_some() { (cli.tos_ak, cli.tos_sk, cli.tos_bucket) }
-        else {
-            let ak = Input::<String>::with_theme(&theme)
-                .with_prompt("TOS Access Key（本地文件上传需要，回车跳过）")
-                .allow_empty(true).interact_text()?;
-            if ak.is_empty() { (None, None, cli.tos_bucket) }
-            else {
-                let sk = Input::<String>::with_theme(&theme)
-                    .with_prompt("TOS Secret Key").interact_text()?;
-                let bucket = Input::<String>::with_theme(&theme)
-                    .with_prompt("TOS 桶名").default("amamizu-oss".into()).interact_text()?;
-                (Some(ak), Some(sk), bucket)
-            }
-        }
-    } else { (cli.tos_ak, cli.tos_sk, cli.tos_bucket) };
-
     // --- Resource ID ---
     let resource_id = cli
         .resource_id
@@ -1026,12 +835,6 @@ async fn build_config(cli: Cli) -> Result<Config> {
         legacy_mode: cli.legacy_mode,
         app_key: cli.app_key,
         access_key: cli.access_key,
-        tos_ak,
-        tos_sk,
-        tos_bucket,
-        tos_endpoint: cli.tos_endpoint,
-        tos_region: cli.tos_region,
-        tos_key_prefix: cli.tos_key_prefix,
         azure_key,
         azure_region,
         language,
