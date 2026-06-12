@@ -2,25 +2,19 @@
       更新说明 / Release Notes
 ═══════════════════════════════════════════════════════════════
 
-v0.2.3 (2026-06-13)
-- 修复: 同一目录多个音频合并结果互相覆盖 → 输出文件自动包含源文件名
-  （如 tos://.../中方答疑课.mp3 → result_中方答疑课.txt）
-- 改进: TOS 下载 404 时提示检查 Unicode 字符，建议用文本文件传入 URL
-- 修复: 合并输出 result_merged.txt → result.txt (v0.2.2 遗留)
-
 v0.2.2 (2026-06-13)
+- 新增: Ark 后端统一使用 Files API 上传音频（file_id），不再依赖 TOS
+- 新增: temperature=0 + thinking=disabled 默认值，省钱提速且转写更准确
+- 新增: 文件大小限制放宽到 512 MB（Files API 上限），大文件无需切分
+- 删除: tos:// URL 输入支持，简化为本地文件 + HTTP(S) URL
+- 删除: TOS 相关 CLI 参数（--tos-ak / --tos-sk / --tos-bucket 等）
+- 删除: TOS 上传模块（src/tos.rs），净减少约 1600 行代码
 - 修复: split_audio 递归深度≥2时输出路径与输入路径碰撞导致 ffmpeg 报错
 - 修复: 文件时长在限制内但体积超限时，切分逻辑新增体积维度反算
 - 修复: 同一目录多个音频合并结果互相覆盖 → 输出文件自动包含源文件名
-  （如 tos://.../中方答疑课.mp3 → result_中方答疑课.txt）
-- 改进: TOS 下载 404 时提示检查 Unicode 字符，建议用文本文件传入 URL
-- 变更: 合并输出 result_merged.txt → result.txt
-- 清理: 移除所有 result_formatted.md 和 Ark result.srt 无效输出
-
-v0.2.1 (2026-06-11)
-- 新增: URL音频超限时可自动下载、切分并重新上传
-- 新增: 文件名保留中文和法文字符（去除 < > : " / \ | ? *）
-- 变更: 指定URL音频时，默认输出目录从 ./auc_output 改为 ./result；指定本地文件时不变
+- 改进: 合并输出 result_merged.txt → result.txt
+- 提示词: 新增"以上规则以法语为例，其他非中文语言均类似"
+- 更新: dist/使用手册.txt，移除 TOS 配置步骤，简化零基础用户操作流程
 
 v0.2.0 (2026-06-10)
 - 新增: Ark 方舟后端 (doubao-seed-2-0-lite)
