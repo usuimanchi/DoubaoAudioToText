@@ -199,7 +199,7 @@ fn las_poll_url(region: &str) -> String {
 #[async_trait]
 impl TranscriptionBackend for LasBackend {
     fn provider_name() -> &'static str {
-        "火山引擎 LAS 算子（las_asr_pro）"
+        "火山引擎 AI数据湖服务（volcengine）"
     }
 
     async fn submit(

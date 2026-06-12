@@ -139,7 +139,7 @@ pub struct VolcengineBackend;
 #[async_trait]
 impl TranscriptionBackend for VolcengineBackend {
     fn provider_name() -> &'static str {
-        "火山引擎（豆包大模型）"
+        "火山方舟录音文件识别服务"
     }
 
     async fn submit(

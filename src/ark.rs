@@ -148,7 +148,7 @@ async fn upload_to_files_api(client: &Client, api_key: &str, file_path: &Path) -
 #[async_trait]
 impl TranscriptionBackend for ArkBackend {
     fn provider_name() -> &'static str {
-        "Ark 方舟（doubao-seed-2-0-lite）"
+        "火山方舟豆包（volcengine ark doubao）"
     }
 
     async fn submit(

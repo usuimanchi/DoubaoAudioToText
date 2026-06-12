@@ -51,10 +51,10 @@ impl Provider {
 
     pub fn display_name(&self) -> &'static str {
         match self {
-            Provider::Volcengine => "火山引擎（豆包大模型 bigmodel）",
+            Provider::Ark => "火山方舟豆包（volcengine ark doubao）",
+            Provider::Las => "火山引擎 AI数据湖服务（volcengine）",
+            Provider::Volcengine => "火山方舟录音文件识别服务",
             Provider::Azure => "Azure Speech-to-Text",
-            Provider::Las => "火山引擎 LAS 算子（las_asr_pro）",
-            Provider::Ark => "Ark 方舟（doubao-seed-2-0-lite）",
         }
     }
 }

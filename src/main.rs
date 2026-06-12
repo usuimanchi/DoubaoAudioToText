@@ -486,13 +486,13 @@ async fn run_pipeline<B: TranscriptionBackend>(
 }
 
 fn print_banner() {
-    println!("{}  ·  doubao-seed-2-0-lite (Ark) | --help", env!("GIT_VERSION"));
+    println!("{}  ·  doubao-seed-2-0-lite (火山方舟豆包) | --help", env!("GIT_VERSION"));
     let lang = detect_system_lang();
     let banner = match lang {
         "fr" => r#"
 ╔══════════════════════════════════════════════════════════════════╗
 ║       Volc AUC Batch Client — Transcription Audio              ║
-║       Modèle par défaut : doubao-seed-2-0-lite (Ark)           ║
+║       Modèle par défaut : doubao-seed-2-0-lite (火山方舟豆包)           ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║ Paramètres principaux :                                         ║
 ║   --api-key <KEY>        Clé API (obligatoire)                 ║
@@ -517,7 +517,7 @@ fn print_banner() {
         "en" => r#"
 ╔══════════════════════════════════════════════════════════════════╗
 ║       Volc AUC Batch Client — Audio Transcription              ║
-║       Default model: doubao-seed-2-0-lite (Ark)                ║
+║       Default model: doubao-seed-2-0-lite (火山方舟豆包)                ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║ Main parameters:                                                ║
 ║   --api-key <KEY>        API Key (required)                    ║
@@ -681,9 +681,9 @@ async fn build_config(cli: Cli) -> Result<Config> {
     // === 第 1 步：选择提供商 ===
     let provider = if is_interactive {
         let providers = &[
-            "Ark 方舟 (doubao-seed-2-0-lite) ⭐推荐",
-            "LAS 算子 (las_asr_pro)",
-            "Volcengine bigmodel (openspeech)",
+            "火山方舟豆包 (doubao-seed-2-0-lite) ⭐推荐",
+            "火山引擎 AI数据湖服务 (las_asr_pro)",
+            "火山方舟录音文件识别服务 (bigmodel)",
             "Azure Speech-to-Text",
         ];
         let idx = Select::with_theme(&theme)
@@ -821,11 +821,11 @@ async fn build_config(cli: Cli) -> Result<Config> {
         return Err(anyhow!("Azure 提供商需要 --azure-region"));
     }
 
-    // LAS 算子不限大小和时长；Ark 用预设默认值（120min/25MB）
-    let (max_duration_secs, max_size_bytes) = if provider == Provider::Las {
-        (u64::MAX, u64::MAX)
-    } else {
-        (cli.max_duration_secs, cli.max_size_bytes)
+    // 各提供商默认限制不同，用 types.rs 常量仅为 CLI 兜底
+    let (max_duration_secs, max_size_bytes) = match provider {
+        Provider::Ark => (86400, 512 * 1024 * 1024),   // Files API: 512MB
+        Provider::Las => (u64::MAX, u64::MAX),          // LAS 算子不限
+        _ => (7200, 25 * 1024 * 1024),                 // Volcengine/Azure: URL 方式 25MB/120min
     };
 
     Ok(Config {
