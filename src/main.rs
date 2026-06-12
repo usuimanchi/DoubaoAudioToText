@@ -399,7 +399,14 @@ async fn run_pipeline<B: TranscriptionBackend>(
                                 match uploader.presigned_url(key, 3600).await {
                                     Ok(ps_url) => {
                                         if let Err(e) = input::download_url(&ps_url, &dl_path).await {
-                                            println!("   ⚠️  TOS 下载失败: {e}");
+                                            let err_msg = format!("{e}");
+                                            if err_msg.contains("404") {
+                                                println!("   ⚠️  TOS 下载失败 (404): 文件未找到。");
+                                                println!("   💡 提示: 若路径含特殊 Unicode 字符（如弯引号 \\u201c \\u201d），");
+                                                println!("         建议将 URL 写入文本文件，通过 --inputs file.txt 传入。");
+                                            } else {
+                                                println!("   ⚠️  TOS 下载失败: {err_msg}");
+                                            }
                                         } else {
                                             audio_input.source_path = dl_path;
                                             audio_input.submission_url = None; // 作为本地文件重新处理
@@ -615,7 +622,9 @@ async fn run_pipeline<B: TranscriptionBackend>(
             let merged = merge_chunk_results(summary);
             match merged {
                 Ok(text) => {
-                    let merged_path = config.output_dir.join("result.txt");
+                    // 从原始输入提取文件名，避免同一目录下多个音频互相覆盖
+                    let stem = output_stem(&summary.original_input);
+                    let merged_path = config.output_dir.join(format!("result_{stem}.txt"));
                     fs::write(&merged_path, &text)?;
                     println!("   📝 合并文本已保存: {}", merged_path.display());
                     println!("   总字数: {} 字", text.chars().count());
@@ -746,6 +755,24 @@ fn sanitize_path(path: &str) -> String {
         .map(sanitize_filename)
         .collect::<Vec<_>>()
         .join("/")
+}
+
+/// 从输入 URL/路径中提取干净的输出文件名（不含扩展名）
+fn output_stem(input: &str) -> String {
+    // tos://bucket/path/to/file.mp3  →  file
+    // /path/to/file.mp3              →  file
+    let name = input
+        .rsplit('/')
+        .next()
+        .unwrap_or(input)
+        .rsplit('?')
+        .next()
+        .unwrap_or("output");
+    let stem = std::path::Path::new(name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("output");
+    sanitize_filename(stem)
 }
 
 fn detect_system_lang() -> &'static str {
