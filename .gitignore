@@ -36,3 +36,5 @@ test_audio/download/
 test_audio/results/
 test_audio/manifest.json
 test_audio/result.txt
+audio_sources/
+src/bin/dl_tos.rs
