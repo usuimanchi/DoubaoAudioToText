@@ -38,5 +38,7 @@ test_audio/manifest.json
 test_audio/result.txt
 audio_sources/
 cli/src/bin/dl_tos.rs
-src-tauri/binaries/ffmpeg*
-src-tauri/binaries/ffprobe*
+src-tauri/binaries/
+src-tauri/gen/
+src-tauri/node_modules/
+src-tauri/package-lock.json

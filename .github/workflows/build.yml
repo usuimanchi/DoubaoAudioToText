@@ -1,0 +1,118 @@
+name: 构建发布
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ── Windows CLI + GUI ──
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+
+      - name: 安装 Rust MSVC
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: 构建 CLI
+        run: cargo build --release -p volc_auc_batch_client
+
+      - name: 复制 CLI 到 dist
+        run: cp target/release/volc_auc_batch_client.exe dist/
+
+      - name: 安装 Tauri CLI
+        run: npm install -g @tauri-apps/cli@latest
+
+      - name: 构建 Windows GUI
+        run: |
+          cd src-tauri
+          npm install
+          npx tauri build
+
+      - name: 复制 GUI 到 dist
+        run: |
+          cp target/release/doubao-transcriber.exe dist/
+          cp target/release/bundle/msi/*.msi dist/ 2>$null || true
+
+      - name: 上传 dist 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-dist
+          path: dist/
+
+  # ── macOS Universal (Intel + Apple Silicon) ──
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+
+      - name: 安装 Rust 目标
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 下载并合并 Universal ffmpeg
+        run: |
+          curl -Lo ffmpeg-arm64.zip https://evermeet.cx/ffmpeg/ffmpeg-7.1-arm64.zip
+          curl -Lo ffmpeg-x86_64.zip https://evermeet.cx/ffmpeg/ffmpeg-7.1.zip
+          unzip -o ffmpeg-arm64.zip -d ffmpeg-arm64
+          unzip -o ffmpeg-x86_64.zip -d ffmpeg-x86_64
+          lipo -create ffmpeg-arm64/ffmpeg ffmpeg-x86_64/ffmpeg -output src-tauri/binaries/ffmpeg
+          # ffprobe
+          curl -Lo ffprobe-arm64.zip https://evermeet.cx/ffmpeg/ffprobe-7.1-arm64.zip
+          curl -Lo ffprobe-x86_64.zip https://evermeet.cx/ffmpeg/ffprobe-7.1.zip
+          unzip -o ffprobe-arm64.zip -d ffprobe-arm64
+          unzip -o ffprobe-x86_64.zip -d ffprobe-x86_64
+          lipo -create ffprobe-arm64/ffprobe ffprobe-x86_64/ffprobe -output src-tauri/binaries/ffprobe
+          chmod +x src-tauri/binaries/ffmpeg src-tauri/binaries/ffprobe
+          lipo -info src-tauri/binaries/ffmpeg
+
+      - name: 构建 Mac Universal CLI
+        run: cargo build --release -p volc_auc_batch_client --target universal-apple-darwin
+
+      - name: 复制 CLI 到 dist
+        run: cp target/universal-apple-darwin/release/volc_auc_batch_client dist/
+
+      - name: 安装 Tauri CLI
+        run: npm install -g @tauri-apps/cli@latest
+
+      - name: 构建 Mac Universal GUI
+        run: |
+          cd src-tauri
+          npm install
+          npx tauri build --target universal-apple-darwin
+
+      - name: 复制 .app 到 dist
+        run: |
+          cp -R target/universal-apple-darwin/release/bundle/macos/豆包语音转文字.app dist/ 2>/dev/null || true
+
+      - name: 上传 Mac 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dist
+          path: dist/
