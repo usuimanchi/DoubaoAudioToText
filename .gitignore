@@ -31,12 +31,9 @@ auc_bigmodel/
 .tmp/
 
 # Test artifacts
-test_audio/prepared/
-test_audio/download/
-test_audio/results/
-test_audio/manifest.json
-test_audio/result.txt
+test_audio/
 audio_sources/
+*.7z
 cli/src/bin/dl_tos.rs
 src-tauri/binaries/
 src-tauri/gen/
