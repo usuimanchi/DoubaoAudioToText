@@ -37,4 +37,6 @@ test_audio/results/
 test_audio/manifest.json
 test_audio/result.txt
 audio_sources/
-src/bin/dl_tos.rs
+cli/src/bin/dl_tos.rs
+src-tauri/binaries/ffmpeg*
+src-tauri/binaries/ffprobe*

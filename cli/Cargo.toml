@@ -1,0 +1,28 @@
+[package]
+name = "volc_auc_batch_client"
+version.workspace = true
+edition.workspace = true
+description = "多提供商语音转文本批量客户端 — CLI 入口"
+
+[[bin]]
+name = "volc_auc_batch_client"
+path = "src/main.rs"
+
+[[bin]]
+name = "dl_tos"
+path = "src/bin/dl_tos.rs"
+
+[dependencies]
+volc_core = { path = "../core" }
+
+anyhow = "1"
+async-trait = "0.1"
+clap = { version = "4", features = ["derive"] }
+dialoguer = "0.11"
+futures-core = "0.3"
+indicatif = "0.17"
+reqwest = "0.12"
+serde = "1"
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+ve-tos-rust-sdk = { version = "2.9.2", features = ["tokio-runtime"] }

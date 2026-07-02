@@ -1,0 +1,26 @@
+[package]
+name = "doubao-transcriber"
+version.workspace = true
+edition.workspace = true
+description = "豆包语音转文字 —— Tauri GUI"
+
+[lib]
+name = "doubao_transcriber_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+volc_core = { path = "../core" }
+
+anyhow = "1"
+opener = "0.8"
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multipart"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+uuid = { version = "1", features = ["v4"] }

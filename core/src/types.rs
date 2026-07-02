@@ -1,7 +1,11 @@
 //! 共享数据类型和常量
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::path::PathBuf;
+use std::sync::Arc;
+
+use crate::progress::ProgressReporter;
 
 // ---------------------------------------------------------------------------
 // 常量
@@ -63,7 +67,6 @@ impl Provider {
 // 运行时配置
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone)]
 pub struct Config {
     // --- 提供商 ---
     pub provider: Provider,
@@ -146,6 +149,84 @@ pub struct Config {
     pub max_split_depth: u32,
     /// 目标转换格式（ogg / mp3），由 provider 决定
     pub target_audio_format: String,
+
+    // --- 进度上报（内部使用，不参与 Debug/Serialize） ---
+    #[doc(hidden)]
+    pub reporter: Arc<dyn ProgressReporter + Send + Sync>,
+    /// ffmpeg/ffprobe 额外搜索目录（CLI: exe 同目录；Tauri: resource_dir）
+    pub extra_bin_dirs: Vec<PathBuf>,
+}
+
+// 手动 Clone（跳过 reporter 的 trait object depth）
+impl Clone for Config {
+    fn clone(&self) -> Self {
+        Config {
+            provider: self.provider,
+            api_key: self.api_key.clone(),
+            resource_id: self.resource_id.clone(),
+            legacy_mode: self.legacy_mode,
+            app_key: self.app_key.clone(),
+            access_key: self.access_key.clone(),
+            azure_key: self.azure_key.clone(),
+            azure_region: self.azure_region.clone(),
+            language: self.language.clone(),
+            enable_speaker_info: self.enable_speaker_info,
+            enable_itn: self.enable_itn,
+            enable_punc: self.enable_punc,
+            enable_ddc: self.enable_ddc,
+            enable_auto_lang: self.enable_auto_lang,
+            show_utterances: self.show_utterances,
+            end_window_size: self.end_window_size,
+            boosting_table_name: self.boosting_table_name.clone(),
+            correct_table_name: self.correct_table_name.clone(),
+            corpus_context: self.corpus_context.clone(),
+            ark_model: self.ark_model.clone(),
+            las_region: self.las_region.clone(),
+            operator_version: self.operator_version.clone(),
+            model_version: self.model_version.clone(),
+            enable_denoise: self.enable_denoise,
+            enable_multi_language: self.enable_multi_language,
+            enable_channel_split: self.enable_channel_split,
+            show_speech_rate: self.show_speech_rate,
+            show_volume: self.show_volume,
+            enable_lid: self.enable_lid,
+            enable_emotion_detection: self.enable_emotion_detection,
+            enable_gender_detection: self.enable_gender_detection,
+            sensitive_words_filter: self.sensitive_words_filter.clone(),
+            enable_poi_fc: self.enable_poi_fc,
+            enable_music_fc: self.enable_music_fc,
+            candidate_locales: self.candidate_locales.clone(),
+            word_level_timestamps: self.word_level_timestamps,
+            profanity_filter_mode: self.profanity_filter_mode.clone(),
+            punctuation_mode: self.punctuation_mode.clone(),
+            output_dir: self.output_dir.clone(),
+            poll_interval_secs: self.poll_interval_secs,
+            max_duration_secs: self.max_duration_secs,
+            max_size_bytes: self.max_size_bytes,
+            prepare_only: self.prepare_only,
+            max_split_depth: self.max_split_depth,
+            target_audio_format: self.target_audio_format.clone(),
+            reporter: Arc::clone(&self.reporter),
+            extra_bin_dirs: self.extra_bin_dirs.clone(),
+        }
+    }
+}
+
+impl fmt::Debug for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Config")
+            .field("provider", &self.provider)
+            .field("api_key", &"[redacted]")
+            .field("resource_id", &self.resource_id)
+            .field("language", &self.language)
+            .field("output_dir", &self.output_dir)
+            .field("max_duration_secs", &self.max_duration_secs)
+            .field("max_size_bytes", &self.max_size_bytes)
+            .field("prepare_only", &self.prepare_only)
+            .field("target_audio_format", &self.target_audio_format)
+            .field("extra_bin_dirs", &self.extra_bin_dirs)
+            .finish_non_exhaustive()
+    }
 }
 
 // ---------------------------------------------------------------------------

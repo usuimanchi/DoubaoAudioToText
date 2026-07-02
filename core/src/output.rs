@@ -5,7 +5,7 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 
-use crate::types::{ChunkSummary, PersistedSummary, SubmittedTaskSummary};
+use crate::types::{ChunkSummary, Config, PersistedSummary, SubmittedTaskSummary};
 
 // ---------------------------------------------------------------------------
 // API Key 记忆
@@ -31,9 +31,15 @@ pub fn load_last_api_key_hint(path: &Path) -> Option<String> {
 // Manifest 写入
 // ---------------------------------------------------------------------------
 
-pub fn write_manifest(path: &Path, summaries: &[PersistedSummary]) -> Result<()> {
+pub fn write_manifest(
+    path: &Path,
+    summaries: &[PersistedSummary],
+    config: &Config,
+) -> Result<()> {
     let json = serde_json::to_vec_pretty(summaries)?;
     fs::write(path, json)?;
-    println!("📋 汇总清单已保存到: {}", path.display());
+    config
+        .reporter
+        .log(format!("📋 汇总清单已保存到: {}", path.display()));
     Ok(())
 }

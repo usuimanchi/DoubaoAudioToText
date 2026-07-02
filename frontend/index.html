@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>豆包语音转文字</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>豆包语音转文字</h1>
+    <p class="subtitle">火山方舟 · 多语言音频转写</p>
+  </header>
+
+  <main>
+    <!-- 第 1 步：选择提供商 -->
+    <section class="card">
+      <h2>1. 选择提供商</h2>
+      <select id="provider">
+        <option value="ark">火山方舟豆包 ⭐推荐</option>
+        <option value="las">火山引擎 AI数据湖服务</option>
+        <option value="volcengine">火山方舟录音文件识别</option>
+        <option value="azure">Azure Speech-to-Text</option>
+      </select>
+    </section>
+
+    <!-- 第 2 步：API Key -->
+    <section class="card" id="api-section">
+      <h2>2. API Key</h2>
+      <div id="ark-key-group">
+        <label>Ark API Key</label>
+        <input type="password" id="api-key" placeholder="ark-..." autocomplete="off">
+        <div class="checkbox-row">
+          <input type="checkbox" id="remember-key">
+          <label for="remember-key">记住 API Key（保存到本地）</label>
+        </div>
+      </div>
+      <div id="azure-key-group" style="display:none">
+        <label>Azure Subscription Key</label>
+        <input type="password" id="azure-key" placeholder="Azure key..." autocomplete="off">
+        <label>Azure 区域</label>
+        <input type="text" id="azure-region" value="eastasia" placeholder="eastasia">
+      </div>
+    </section>
+
+    <!-- 第 3 步：语言选择 -->
+    <section class="card">
+      <h2>3. 语言（可多选，留空自动识别）</h2>
+      <div class="lang-grid">
+        <label class="lang-chip"><input type="checkbox" value="auto" checked> 自动识别</label>
+        <label class="lang-chip"><input type="checkbox" value="zh-CN"> 中文普通话</label>
+        <label class="lang-chip"><input type="checkbox" value="en-US"> 英语</label>
+        <label class="lang-chip"><input type="checkbox" value="ja-JP"> 日语</label>
+        <label class="lang-chip"><input type="checkbox" value="ko-KR"> 韩语</label>
+        <label class="lang-chip"><input type="checkbox" value="fr-FR"> 法语</label>
+        <label class="lang-chip"><input type="checkbox" value="de-DE"> 德语</label>
+        <label class="lang-chip"><input type="checkbox" value="yue-CN"> 粤语</label>
+        <label class="lang-chip"><input type="checkbox" value="es-MX"> 西班牙语</label>
+      </div>
+    </section>
+
+    <!-- 第 4 步：音频文件 -->
+    <section class="card">
+      <h2>4. 音频文件</h2>
+      <div id="drop-zone">
+        <p>拖拽音频文件到此处，或点击选择</p>
+        <input type="file" id="file-input" multiple accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.mp4,.webm,.opus">
+      </div>
+      <ul id="file-list"></ul>
+    </section>
+
+    <!-- 第 5 步：输出目录 -->
+    <section class="card">
+      <h2>5. 输出目录</h2>
+      <div class="row">
+        <input type="text" id="output-dir" value="./result" placeholder="./result">
+        <button id="pick-dir">选择目录</button>
+      </div>
+    </section>
+
+    <!-- 操作按钮 -->
+    <div class="actions">
+      <button id="start-btn" class="primary">🚀 开始转写</button>
+    </div>
+
+    <!-- 进度日志 -->
+    <section class="card" id="log-section">
+      <h2>转写进度</h2>
+      <pre id="log">等待开始...</pre>
+    </section>
+
+    <!-- 结果列表 -->
+    <section class="card" id="results-section">
+      <h2>结果</h2>
+      <ul id="result-list"></ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>基于火山方舟豆包大模型 · doubao-seed-2-0-lite</p>
+  </footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

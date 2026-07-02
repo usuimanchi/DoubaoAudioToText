@@ -1,0 +1,22 @@
+[package]
+name = "volc_core"
+version.workspace = true
+edition.workspace = true
+description = "语音转文本核心库 —— 音频处理 + 多后端编排"
+
+[lib]
+name = "volc_core"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+futures-util = "0.3"
+futures-core = "0.3"
+indicatif = "0.17"
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multipart"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+ve-tos-rust-sdk = { version = "2.9.2", features = ["tokio-runtime"] }

@@ -1,7 +1,6 @@
 //! 音频工具：探测、转换、切分（基于 ffmpeg/ffprobe）
 
 use anyhow::{anyhow, Context, Result};
-use indicatif::ProgressBar;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -9,11 +8,42 @@ use std::process::Command;
 use crate::types::{Config, PreparedChunk, ProbeMeta, SUPPORTED_FORMATS};
 
 // ---------------------------------------------------------------------------
+// ffmpeg/ffprobe 路径解析（跨平台）
+// ---------------------------------------------------------------------------
+
+/// 解析 ffmpeg 可执行文件路径。优先 `extra_dirs`（CLI: exe 同目录；Tauri: resource_dir），退回 PATH。
+pub fn resolve_ffmpeg(extra_dirs: &[PathBuf]) -> PathBuf {
+    resolve_tool("ffmpeg", extra_dirs)
+}
+
+/// 解析 ffprobe 可执行文件路径。
+pub fn resolve_ffprobe(extra_dirs: &[PathBuf]) -> PathBuf {
+    resolve_tool("ffprobe", extra_dirs)
+}
+
+fn resolve_tool(name: &str, extra_dirs: &[PathBuf]) -> PathBuf {
+    let exe = if cfg!(windows) {
+        format!("{name}.exe")
+    } else {
+        name.to_string()
+    };
+    for d in extra_dirs {
+        let p = d.join(&exe);
+        if p.exists() {
+            return p;
+        }
+    }
+    // 退回 PATH
+    PathBuf::from(name)
+}
+
+// ---------------------------------------------------------------------------
 // ffprobe 探测
 // ---------------------------------------------------------------------------
 
-pub async fn probe_audio(path: &Path) -> Result<ProbeMeta> {
-    let output = Command::new("ffprobe")
+pub async fn probe_audio(path: &Path, extra_bin_dirs: &[PathBuf]) -> Result<ProbeMeta> {
+    let ffprobe_path = resolve_ffprobe(extra_bin_dirs);
+    let output = Command::new(ffprobe_path)
         .arg("-v").arg("error")
         .arg("-show_entries")
         .arg("format=format_name,duration,bit_rate:stream=codec_name,sample_rate,channels,bits_per_raw_sample")
@@ -76,24 +106,25 @@ pub async fn prepare_audio(
     input: &crate::types::AudioInput,
     cfg: &Config,
 ) -> Result<Vec<PreparedChunk>> {
-    let meta = probe_audio(&input.source_path).await?;
+    let meta = probe_audio(&input.source_path, &cfg.extra_bin_dirs).await?;
 
-    println!("   🔍 探测结果: 格式={}  编码={}  {}Hz  {}ch  {}bit  {}  {}",
-             meta.format_name,
-             meta.codec_name,
-             meta.sample_rate,
-             meta.channels,
-             meta.bits_per_sample,
-             format_duration(meta.duration_secs),
-             format_size(meta.size_bytes),
-    );
+    cfg.reporter.log(format!(
+        "   🔍 探测结果: 格式={}  编码={}  {}Hz  {}ch  {}bit  {}  {}",
+        meta.format_name,
+        meta.codec_name,
+        meta.sample_rate,
+        meta.channels,
+        meta.bits_per_sample,
+        format_duration(meta.duration_secs),
+        format_size(meta.size_bytes),
+    ));
 
     let format_ok = is_supported_format(&meta.format_name);
     let size_ok = meta.size_bytes <= cfg.max_size_bytes;
     let duration_ok = meta.duration_secs <= cfg.max_duration_secs as f64;
 
     if format_ok && size_ok && duration_ok {
-        println!("   ✅ 音频符合 API 要求，无需处理。");
+        cfg.reporter.log("   ✅ 音频符合 API 要求，无需处理。".to_string());
 
         let (fmt, codec) = normalize_format_and_codec(&meta);
         return Ok(vec![PreparedChunk {
@@ -109,25 +140,32 @@ pub async fn prepare_audio(
 
     // 报告不合规项并处理
     if !format_ok {
-        println!("   ⚠️  格式不支持: {}（支持: {:?}）", meta.format_name, SUPPORTED_FORMATS);
+        cfg.reporter.warn(format!(
+            "   ⚠️  格式不支持: {}（支持: {:?}）",
+            meta.format_name,
+            SUPPORTED_FORMATS
+        ));
         let ext = &cfg.target_audio_format;
-        println!("   🔄 正在转换为 {}...", ext.to_uppercase());
-        let dst = cfg.output_dir
+        cfg.reporter.log(format!("   🔄 正在转换为 {}...", ext.to_uppercase()));
+        let dst = cfg
+            .output_dir
             .join("prepared")
             .join(format!("{}_converted.{}", file_stem(&input.source_path), ext));
         if ext == "mp3" {
-            convert_to_mp3(&input.source_path, &dst, &meta).await?;
+            convert_to_mp3(&input.source_path, &dst, &meta, &cfg.extra_bin_dirs).await?;
         } else {
-            convert_to_ogg(&input.source_path, &dst, &meta).await?;
+            convert_to_ogg(&input.source_path, &dst, &meta, &cfg.extra_bin_dirs).await?;
         }
 
-        let converted_meta = probe_audio(&dst).await?;
+        let converted_meta = probe_audio(&dst, &cfg.extra_bin_dirs).await?;
         let fmt = ext.to_string();
         let codec = if ext == "mp3" { "mp3" } else { "opus" };
-        println!("   ✅ 转换完成: {}  {}  {}",
-                 format_duration(converted_meta.duration_secs),
-                 format_size(converted_meta.size_bytes),
-                 dst.display());
+        cfg.reporter.log(format!(
+            "   ✅ 转换完成: {}  {}  {}",
+            format_duration(converted_meta.duration_secs),
+            format_size(converted_meta.size_bytes),
+            dst.display()
+        ));
 
         if converted_meta.size_bytes > cfg.max_size_bytes
             || converted_meta.duration_secs > cfg.max_duration_secs as f64
@@ -148,14 +186,21 @@ pub async fn prepare_audio(
     }
 
     if !duration_ok {
-        println!("   ⚠️  时长超限: {}（最大 {} 秒）", meta.duration_secs, cfg.max_duration_secs);
+        cfg.reporter.warn(format!(
+            "   ⚠️  时长超限: {}（最大 {} 秒）",
+            meta.duration_secs, cfg.max_duration_secs
+        ));
     }
     if !size_ok {
-        println!("   ⚠️  文件大小超限: {}（最大 {}）", format_size(meta.size_bytes), format_size(cfg.max_size_bytes));
+        cfg.reporter.warn(format!(
+            "   ⚠️  文件大小超限: {}（最大 {}）",
+            format_size(meta.size_bytes),
+            format_size(cfg.max_size_bytes)
+        ));
     }
 
     if !duration_ok || !size_ok {
-        println!("   🔪 正在切分音频...");
+        cfg.reporter.log("   🔪 正在切分音频...".to_string());
         return split_audio(&input.source_path, cfg, &meta, 0).await;
     }
 
@@ -220,7 +265,7 @@ pub fn normalize_format_and_codec(meta: &ProbeMeta) -> (String, String) {
 // 音频转换: → 16bit OGG (Opus)，尽量保持原始质量
 // ---------------------------------------------------------------------------
 
-pub async fn convert_to_ogg(src: &Path, dst: &Path, meta: &ProbeMeta) -> Result<()> {
+pub async fn convert_to_ogg(src: &Path, dst: &Path, meta: &ProbeMeta, extra_bin_dirs: &[PathBuf]) -> Result<()> {
     if let Some(parent) = dst.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -242,7 +287,8 @@ pub async fn convert_to_ogg(src: &Path, dst: &Path, meta: &ProbeMeta) -> Result<
              meta.channels,
              meta.bitrate_bps / 1000);
 
-    let status = Command::new("ffmpeg")
+    let ffmpeg_path = resolve_ffmpeg(extra_bin_dirs);
+    let status = Command::new(ffmpeg_path)
         .arg("-y")
         .arg("-i").arg(src)
         .arg("-ac").arg("1")
@@ -306,13 +352,10 @@ pub async fn split_audio(
     };
     let overlap_secs = 10.0; // 每段尾部重叠 10 秒，为边界句子提供上下文
     let total_segments = (duration / segment_secs).ceil() as u32;
-    println!("   🔪 切分为最多 {} 段（每段 ≤ {:.0} 秒，重叠 {} 秒）", total_segments, segment_secs, overlap_secs);
-
-    let pb = ProgressBar::new(total_segments as u64);
-    pb.set_style(
-        indicatif::ProgressStyle::with_template("[{elapsed_precise}] {wide_bar} {pos}/{len}")
-            .unwrap_or_else(|_| indicatif::ProgressStyle::default_bar()),
-    );
+    cfg.reporter.log(format!(
+        "   🔪 切分为最多 {} 段（每段 ≤ {:.0} 秒，重叠 {} 秒）",
+        total_segments, segment_secs, overlap_secs
+    ));
 
     let mut parts: Vec<PreparedChunk> = Vec::new();
     let mut start = 0.0;
@@ -332,7 +375,8 @@ pub async fn split_audio(
 
         let out_path = base.join(format!("part_{:04}.{ext}", idx));
 
-        let mut cmd = Command::new("ffmpeg");
+        let ffmpeg_path = resolve_ffmpeg(&cfg.extra_bin_dirs);
+        let mut cmd = Command::new(&ffmpeg_path);
         cmd.arg("-y").arg("-i").arg(src)
             .arg("-ss").arg(format!("{start}"))
             .arg("-t").arg(format!("{this_duration}"))
@@ -350,7 +394,7 @@ pub async fn split_audio(
             return Err(anyhow!("切分音频失败（片段 {}）", idx));
         }
 
-        let chunk_meta = probe_audio(&out_path).await?;
+        let chunk_meta = probe_audio(&out_path, &cfg.extra_bin_dirs).await?;
         if chunk_meta.size_bytes > cfg.max_size_bytes && depth + 1 < cfg.max_split_depth {
             let sub_parts = Box::pin(split_audio(&out_path, cfg, &chunk_meta, depth + 1)).await?;
             parts.extend(sub_parts);
@@ -369,10 +413,13 @@ pub async fn split_audio(
 
         start += segment_secs;
         idx += 1;
-        pb.inc(1);
+        // Progress reported via reporter
+        cfg.reporter.emit(crate::progress::ProgressEvent::Progress {
+            key: format!("split-{}", src.display()),
+            pos: idx as u64,
+            len: total_segments as u64,
+        });
     }
-
-    pb.finish_and_clear();
     Ok(parts)
 }
 
@@ -414,12 +461,13 @@ pub fn format_size(bytes: u64) -> String {
     format!("{:.1} {}", size, UNITS[unit_idx])
 }
 
-pub async fn convert_to_mp3(src: &Path, dst: &Path, meta: &ProbeMeta) -> Result<()> {
+pub async fn convert_to_mp3(src: &Path, dst: &Path, meta: &ProbeMeta, extra_bin_dirs: &[PathBuf]) -> Result<()> {
     if let Some(parent) = dst.parent() {
         fs::create_dir_all(parent)?;
     }
     // MP3 @ 64kbps mono, good balance for speech
-    let status = Command::new("ffmpeg")
+    let ffmpeg_path = resolve_ffmpeg(extra_bin_dirs);
+    let status = Command::new(ffmpeg_path)
         .arg("-y").arg("-i").arg(src)
         .arg("-ac").arg("1")
         .arg("-ar").arg("16000")
