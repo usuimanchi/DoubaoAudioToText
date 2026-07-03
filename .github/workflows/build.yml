@@ -114,13 +114,18 @@ jobs:
         with:
           path: artifacts
 
-      - name: 打包为 zip
+      - name: 重命名 zip 并预览内容
         run: |
+          VERSION="${{ github.ref_name }}"
           cd artifacts
-          for dir in */; do
-            dirname=$(basename "$dir")
-            zip -r "../${dirname}.zip" "$dir"
-          done
+          ls -la
+          # artifact 按文件夹名下载，内容在子目录
+          find . -type f | head -20
+          # 重新打包为带版本号的 zip
+          zip -r "../AnyModelAudioToText-${VERSION}-windows.zip" windows-dist/
+          zip -r "../AnyModelAudioToText-${VERSION}-macos-arm64.zip" macos-dist/
+          echo "Generated:"
+          ls -la ../*.zip
 
       - name: 创建 Release
         uses: softprops/action-gh-release@v2
@@ -136,10 +141,10 @@ jobs:
 
             **Mac 用户**：下载 `AnyModelAudioToText-*-macos-arm64.zip`，解压后运行 `./doubao-transcriber`。ffmpeg 首次运行时会自动下载（或 `brew install ffmpeg`）。
 
-            ### 变更
-
-            详见 `dist/更新说明.txt`
-          files: ./*.zip
+            ---
+            📦 最新版始终在此: https://github.com/usuimanchi/AnyModelAudioToText/releases/latest
+          files: |
+            AnyModelAudioToText-*.zip
           draft: false
           prerelease: false
         env:
