@@ -40,13 +40,11 @@ jobs:
       - name: 构建 Windows GUI
         run: |
           cd src-tauri
-          npm init -y
-          npx tauri build
+          # 直接 cargo build（跳过 tauri build 的 Wix 打包步骤，减少 CI 依赖）
+          cargo build --release -p doubao-transcriber
 
       - name: 复制 GUI 到 dist
-        run: |
-          cp target/release/doubao-transcriber.exe dist/
-          cp target/release/bundle/msi/*.msi dist/ 2>$null || true
+        run: cp target/release/doubao-transcriber.exe dist/
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
@@ -77,24 +75,15 @@ jobs:
         with:
           node-version: 22
 
-      - name: 构建 Mac ARM64 CLI
-        run: cargo build --release -p volc_auc_batch_client
-
-      - name: 复制 CLI 到 dist
-        run: cp target/release/volc_auc_batch_client dist/
-
-      - name: 安装 Tauri CLI
-        run: npm install -g @tauri-apps/cli@latest
-
-      - name: 构建 Mac GUI
+      - name: 构建 Mac ARM64 CLI + GUI
         run: |
-          cd src-tauri
-          npm init -y
-          npx tauri build
+          cargo build --release -p volc_auc_batch_client
+          cargo build --release -p doubao-transcriber
 
-      - name: 复制 .app 到 dist
+      - name: 复制产物到 dist
         run: |
-          cp -R target/release/bundle/macos/豆包语音转文字.app dist/ 2>/dev/null || echo "no .app found"
+          cp target/release/volc_auc_batch_client dist/
+          cp target/release/doubao-transcriber dist/
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
