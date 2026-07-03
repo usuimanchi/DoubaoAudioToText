@@ -77,4 +77,4 @@ frontend/      — 纯静态前端（HTML/JS/CSS）
 
 ## License
 
-MIT
+[GPLv3](LICENSE)
