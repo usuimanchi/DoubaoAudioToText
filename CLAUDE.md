@@ -54,6 +54,8 @@ DoubaoAudioToText/
 └── dist/                     # 本地构建产物（gitignored，CI 自动发布）
 ```
 
+> 本地目录名仍为 `DoubaoAudioToText`，GitHub 仓库名已改为 `AnyModelAudioToText`。
+
 ## 构建
 
 ```bash
