@@ -28,6 +28,14 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
+      - name: 下载 ffmpeg (Windows)
+        shell: pwsh
+        run: |
+          curl -Lo ffmpeg-essentials.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+          Expand-Archive ffmpeg-essentials.zip -DestinationPath ffmpeg-temp
+          Copy-Item (Get-ChildItem -Path ffmpeg-temp -Filter ffmpeg.exe -Recurse).FullName src-tauri/binaries/ffmpeg.exe
+          Copy-Item (Get-ChildItem -Path ffmpeg-temp -Filter ffprobe.exe -Recurse).FullName src-tauri/binaries/ffprobe.exe
+
       - name: 构建 CLI
         run: cargo build --release -p volc_auc_batch_client
 
@@ -79,17 +87,12 @@ jobs:
 
       - name: 下载并合并 Universal ffmpeg
         run: |
-          curl -Lo ffmpeg-arm64.zip https://evermeet.cx/ffmpeg/ffmpeg-7.1-arm64.zip
-          curl -Lo ffmpeg-x86_64.zip https://evermeet.cx/ffmpeg/ffmpeg-7.1.zip
-          unzip -o ffmpeg-arm64.zip -d ffmpeg-arm64
-          unzip -o ffmpeg-x86_64.zip -d ffmpeg-x86_64
-          lipo -create ffmpeg-arm64/ffmpeg ffmpeg-x86_64/ffmpeg -output src-tauri/binaries/ffmpeg
-          # ffprobe
-          curl -Lo ffprobe-arm64.zip https://evermeet.cx/ffmpeg/ffprobe-7.1-arm64.zip
-          curl -Lo ffprobe-x86_64.zip https://evermeet.cx/ffmpeg/ffprobe-7.1.zip
-          unzip -o ffprobe-arm64.zip -d ffprobe-arm64
-          unzip -o ffprobe-x86_64.zip -d ffprobe-x86_64
-          lipo -create ffprobe-arm64/ffprobe ffprobe-x86_64/ffprobe -output src-tauri/binaries/ffprobe
+          # 从 BtbN/FFmpeg-Builds 下载 macOS 静态构建
+          FFMPEG_RELEASE_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-macos-universal.zip"
+          curl -Lo ffmpeg-universal.zip "$FFMPEG_RELEASE_URL"
+          unzip -o ffmpeg-universal.zip -d ffmpeg-universal
+          cp ffmpeg-universal/ffmpeg-macos-universal/bin/ffmpeg src-tauri/binaries/ffmpeg
+          cp ffmpeg-universal/ffmpeg-macos-universal/bin/ffprobe src-tauri/binaries/ffprobe
           chmod +x src-tauri/binaries/ffmpeg src-tauri/binaries/ffprobe
           lipo -info src-tauri/binaries/ffmpeg
 

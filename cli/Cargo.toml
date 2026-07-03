@@ -8,10 +8,6 @@ description = "多提供商语音转文本批量客户端 — CLI 入口"
 name = "volc_auc_batch_client"
 path = "src/main.rs"
 
-[[bin]]
-name = "dl_tos"
-path = "src/bin/dl_tos.rs"
-
 [dependencies]
 volc_core = { path = "../core" }
 
