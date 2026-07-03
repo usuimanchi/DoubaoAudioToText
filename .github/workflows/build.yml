@@ -11,6 +11,8 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: sccache
 
 jobs:
   # ── Windows CLI + GUI ──
@@ -18,18 +20,23 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+
+      - name: 安装 Rust + 缓存工具
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
+
+      - name: 配置 sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "."  # workspace root
+          workspaces: "."
 
-      - name: 构建 CLI
-        run: cargo build --release -p volc_auc_batch_client
-
-      - name: 构建 Windows GUI
-        run: cargo build --release -p doubao-transcriber
+      - name: 构建 CLI + GUI
+        run: |
+          cargo build --release -p volc_auc_batch_client
+          cargo build --release -p doubao-transcriber
 
       - name: 打包发布目录
         shell: pwsh
@@ -46,7 +53,6 @@ jobs:
           1. 双击 doubao-transcriber.exe 启动图形界面
           2. 粘贴 API Key（以 ark- 开头）
           3. 拖拽音频文件到窗口，点击开始转写
-          4. 也可在终端运行 volc_auc_batch_client.exe --help 使用命令行
 
           ffmpeg：首次运行时会自动下载，无需手动安装。
           "@ | Out-File $PKG_DIR/README.txt -Encoding utf8
@@ -62,20 +68,20 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: 安装 Rust 目标
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: 配置 sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: "."
 
-      - name: 安装 Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: 构建 Mac ARM64 CLI + GUI
+      - name: 构建 CLI + GUI
         run: |
           cargo build --release -p volc_auc_batch_client
           cargo build --release -p doubao-transcriber
@@ -94,7 +100,6 @@ jobs:
           1. 终端运行 ./doubao-transcriber 启动图形界面
           2. 粘贴 API Key
           3. 拖拽音频文件到窗口，点击开始转写
-          4. 也可运行 ./volc_auc_batch_client --help 使用命令行
 
           ffmpeg：首次运行时会自动下载（或 brew install ffmpeg）。
           EOF
