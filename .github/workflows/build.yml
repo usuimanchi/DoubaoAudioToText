@@ -31,28 +31,30 @@ jobs:
       - name: 构建 CLI
         run: cargo build --release -p volc_auc_batch_client
 
-      - name: 复制 CLI 到 dist
-        run: cp target/release/volc_auc_batch_client.exe dist/
-
-      - name: 安装 Tauri CLI
-        run: npm install -g @tauri-apps/cli@latest
-
       - name: 构建 Windows GUI
-        run: |
-          cd src-tauri
-          # 直接 cargo build（跳过 tauri build 的 Wix 打包步骤，减少 CI 依赖）
-          cargo build --release -p doubao-transcriber
+        run: cargo build --release -p doubao-transcriber
 
-      - name: 复制 GUI 到 dist
-        run: cp target/release/doubao-transcriber.exe dist/
+      - name: 打包发布目录
+        shell: pwsh
+        run: |
+          $VERSION = "${{ github.ref_name }}"
+          if ($VERSION -notmatch '^v') { $VERSION = "latest" }
+          $PKG_DIR = "AnyModelAudioToText-$VERSION-windows"
+          New-Item -ItemType Directory -Force -Path $PKG_DIR
+          Copy-Item target/release/volc_auc_batch_client.exe $PKG_DIR/
+          Copy-Item target/release/doubao-transcriber.exe $PKG_DIR/
+          Copy-Item dist/使用手册.txt $PKG_DIR/
+          Copy-Item dist/更新说明.txt $PKG_DIR/
+          # ffmpeg 提示（用户需自行放入同目录，或启动时自动下载）
+          "# ffmpeg not bundled - run app once and it will auto-download" | Out-File $PKG_DIR/ffmpeg说明.txt -Encoding utf8
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
           name: windows-dist
-          path: dist/
+          path: AnyModelAudioToText-*-windows/
 
-  # ── macOS Universal (Intel + Apple Silicon) ──
+  # ── macOS (ARM64) ──
   macos:
     runs-on: macos-latest
     steps:
@@ -80,13 +82,62 @@ jobs:
           cargo build --release -p volc_auc_batch_client
           cargo build --release -p doubao-transcriber
 
-      - name: 复制产物到 dist
+      - name: 打包发布目录
         run: |
-          cp target/release/volc_auc_batch_client dist/
-          cp target/release/doubao-transcriber dist/
+          VERSION="${GITHUB_REF_NAME}"
+          [[ "$VERSION" != v* ]] && VERSION="latest"
+          PKG_DIR="AnyModelAudioToText-${VERSION}-macos-arm64"
+          mkdir -p "$PKG_DIR"
+          cp target/release/volc_auc_batch_client "$PKG_DIR/"
+          cp target/release/doubao-transcriber "$PKG_DIR/"
+          cp dist/使用手册.txt "$PKG_DIR/"
+          cp dist/更新说明.txt "$PKG_DIR/"
+          # Mac 用户需 brew install ffmpeg 或启动时自动下载
+          echo "Mac 用户首次运行时会自动引导安装 ffmpeg。或自行运行: brew install ffmpeg" > "$PKG_DIR/ffmpeg说明.txt"
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
           name: macos-dist
-          path: dist/
+          path: AnyModelAudioToText-*-macos-arm64/
+
+  # ── 创建 GitHub Release（仅 tag 推送时）──
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: 打包为 zip
+        run: |
+          cd artifacts
+          for dir in */; do
+            dirname=$(basename "$dir")
+            zip -r "../${dirname}.zip" "$dir"
+          done
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }} AnyModelAudioToText
+          body: |
+            ## ${{ github.ref_name }}
+
+            ### 下载
+
+            **Windows 用户**：下载 `AnyModelAudioToText-*-windows.zip`，解压后双击 `doubao-transcriber.exe`。ffmpeg 首次运行时会自动下载。
+
+            **Mac 用户**：下载 `AnyModelAudioToText-*-macos-arm64.zip`，解压后运行 `./doubao-transcriber`。ffmpeg 首次运行时会自动下载（或 `brew install ffmpeg`）。
+
+            ### 变更
+
+            详见 `dist/更新说明.txt`
+          files: ./*.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
