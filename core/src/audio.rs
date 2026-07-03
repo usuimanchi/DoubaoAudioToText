@@ -319,6 +319,14 @@ pub async fn prepare_audio(
     input: &crate::types::AudioInput,
     cfg: &Config,
 ) -> Result<Vec<PreparedChunk>> {
+    // 确保 ffmpeg/ffprobe 存在，缺失时自动下载
+    let download_dir = cfg
+        .extra_bin_dirs
+        .first()
+        .cloned()
+        .unwrap_or_else(|| cfg.output_dir.clone());
+    let _ = ensure_ffmpeg(&download_dir, &cfg.extra_bin_dirs, cfg.reporter.as_ref()).await?;
+
     let meta = probe_audio(&input.source_path, &cfg.extra_bin_dirs).await?;
 
     cfg.reporter.log(format!(
