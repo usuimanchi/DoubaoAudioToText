@@ -4,7 +4,12 @@ use anyhow::{anyhow, Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 
+use futures_util::StreamExt;
+use tokio::io::AsyncWriteExt;
+
+use crate::progress::ProgressReporter;
 use crate::types::{Config, PreparedChunk, ProbeMeta, SUPPORTED_FORMATS};
 
 // ---------------------------------------------------------------------------
@@ -35,6 +40,214 @@ fn resolve_tool(name: &str, extra_dirs: &[PathBuf]) -> PathBuf {
     }
     // 退回 PATH
     PathBuf::from(name)
+}
+
+// ---------------------------------------------------------------------------
+// ffmpeg 自动检测与下载
+// ---------------------------------------------------------------------------
+
+/// 检测 ffmpeg/ffprobe 是否存在，缺失时自动下载到 `target_dir`。
+pub async fn ensure_ffmpeg(
+    target_dir: &Path,
+    extra_dirs: &[PathBuf],
+    reporter: &dyn ProgressReporter,
+) -> Result<(PathBuf, PathBuf)> {
+    let ffmpeg_found = resolve_tool("ffmpeg", extra_dirs).exists() || which("ffmpeg").is_some();
+    let ffprobe_found = resolve_tool("ffprobe", extra_dirs).exists() || which("ffprobe").is_some();
+    if ffmpeg_found && ffprobe_found {
+        return Ok((resolve_ffmpeg(extra_dirs), resolve_ffprobe(extra_dirs)));
+    }
+
+    reporter.log("🔍 未检测到 ffmpeg，准备自动下载...".to_string());
+
+    // 检测是否在中国（国内用户走镜像源）
+    let in_china = is_likely_china().await;
+    if in_china {
+        reporter.log("🇨🇳 检测到国内网络，使用国内镜像".to_string());
+    } else {
+        reporter.log("🌐 使用国际源下载".to_string());
+    }
+
+    fs::create_dir_all(target_dir)?;
+    download_and_extract_ffmpeg(target_dir, in_china, reporter).await?;
+
+    let ffmpeg_path = resolve_ffmpeg(&[target_dir.to_path_buf()]);
+    let ffprobe_path = resolve_ffprobe(&[target_dir.to_path_buf()]);
+    if !ffmpeg_path.exists() || !ffprobe_path.exists() {
+        return Err(anyhow!("下载 ffmpeg 失败，请手动放入: {}", target_dir.display()));
+    }
+    #[cfg(not(windows))]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&ffmpeg_path, fs::Permissions::from_mode(0o755))?;
+        fs::set_permissions(&ffprobe_path, fs::Permissions::from_mode(0o755))?;
+    }
+    reporter.log(format!("✅ ffmpeg 就绪: {}", ffmpeg_path.display()));
+    Ok((ffmpeg_path, ffprobe_path))
+}
+
+/// 快速判断 IP 是否在中国（超时 3s，失败则返回 false）
+async fn is_likely_china() -> bool {
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    match client.get("https://myip.ipip.net").send().await {
+        Ok(resp) => {
+            if let Ok(body) = resp.text().await {
+                return body.contains("中国");
+            }
+            false
+        }
+        Err(_) => false,
+    }
+}
+
+/// 下载并解压 ffmpeg
+async fn download_and_extract_ffmpeg(
+    target_dir: &Path,
+    in_china: bool,
+    reporter: &dyn ProgressReporter,
+) -> Result<()> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(300))
+        .build()
+        .context("创建 HTTP 客户端失败")?;
+
+    #[cfg(windows)]
+    {
+        let base_url = if in_china {
+            "https://mirrors.tuna.tsinghua.edu.cn/ffmpeg/windows/ffmpeg-release-essentials.zip"
+        } else {
+            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+        };
+        let zip_path = target_dir.join("ffmpeg.zip");
+        download_file(&client, base_url, &zip_path, reporter).await?;
+
+        // 用 PowerShell 解压
+        let extract_dir = target_dir.join("extract");
+        fs::create_dir_all(&extract_dir)?;
+        let status = Command::new("powershell")
+            .args(["-Command", &format!(
+                "Expand-Archive -Path '{}' -DestinationPath '{}' -Force",
+                zip_path.display(), extract_dir.display()
+            )])
+            .status()?;
+        if !status.success() {
+            return Err(anyhow!("解压 ffmpeg.zip 失败"));
+        }
+        // 拷贝 ffmpeg.exe / ffprobe.exe
+        for f in &["ffmpeg.exe", "ffprobe.exe"] {
+            let dst = target_dir.join(f);
+            if !dst.exists() {
+                // 递归查找
+                find_file(&extract_dir, f, target_dir)?;
+            }
+        }
+        fs::remove_file(&zip_path).ok();
+        fs::remove_dir_all(&extract_dir).ok();
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let zip_url = if in_china {
+            "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-macos-universal.zip"
+        } else {
+            "https://evermeet.cx/ffmpeg/ffmpeg-7.1.zip"
+        };
+        let probe_zip_url = if in_china {
+            &zip_url
+        } else {
+            "https://evermeet.cx/ffmpeg/ffprobe-7.1.zip"
+        };
+        let zip_path = target_dir.join("ffmpeg.zip");
+        download_file(&client, zip_url, &zip_path, reporter).await?;
+        let status = Command::new("unzip")
+            .args(["-o", &zip_path.to_string_lossy(), "-d", &target_dir.to_string_lossy()])
+            .status()?;
+        if !status.success() {
+            return Err(anyhow!("解压 ffmpeg.zip 失败"));
+        }
+        fs::remove_file(&zip_path).ok();
+        // BtbN 格式：子目录/bin/ffmpeg → 复制到根
+        for f in &["ffmpeg", "ffprobe"] {
+            if !target_dir.join(f).exists() {
+                if let Some(src) = find_file_recursive(target_dir, f) {
+                    fs::copy(&src, target_dir.join(f))?;
+                }
+            }
+        }
+    }
+
+    reporter.log("✅ ffmpeg 下载并安装完成".to_string());
+    Ok(())
+}
+
+async fn download_file(
+    client: &reqwest::Client,
+    url: &str,
+    dst: &Path,
+    reporter: &dyn ProgressReporter,
+) -> Result<()> {
+    let resp = client.get(url).send().await
+        .with_context(|| format!("下载失败: {url}"))?
+        .error_for_status()?;
+    let total = resp.content_length().unwrap_or(0);
+    let mut file = tokio::fs::File::create(dst).await?;
+    let mut stream = resp.bytes_stream();
+    let mut downloaded: u64 = 0;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        file.write_all(&chunk).await?;
+        downloaded += chunk.len() as u64;
+        if total > 0 {
+            reporter.emit(crate::progress::ProgressEvent::Progress {
+                key: url.to_string(),
+                pos: downloaded,
+                len: total,
+            });
+        }
+    }
+    file.flush().await?;
+    Ok(())
+}
+
+/// 在 PATH 中查找可执行文件
+fn which(name: &str) -> Option<PathBuf> {
+    let exe = if cfg!(windows) { format!("{name}.exe") } else { name.to_string() };
+    std::env::var_os("PATH").and_then(|paths| {
+        std::env::split_paths(&paths).find_map(|dir| {
+            let full = dir.join(&exe);
+            if full.exists() { Some(full) } else { None }
+        })
+    })
+}
+
+/// 在目录中递归查找文件并复制
+fn find_file(src_dir: &Path, name: &str, dst_dir: &Path) -> Result<()> {
+    if let Some(src) = find_file_recursive(src_dir, name) {
+        fs::copy(&src, dst_dir.join(name))?;
+        return Ok(());
+    }
+    Err(anyhow!("未找到 {name}"))
+}
+
+fn find_file_recursive(dir: &Path, name: &str) -> Option<PathBuf> {
+    for entry in fs::read_dir(dir).ok()? {
+        let entry = entry.ok()?;
+        let path = entry.path();
+        if path.is_dir() {
+            if let Some(found) = find_file_recursive(&path, name) {
+                return Some(found);
+            }
+        } else if path.file_name().and_then(|n| n.to_str()) == Some(name) {
+            return Some(path);
+        }
+    }
+    None
 }
 
 // ---------------------------------------------------------------------------
