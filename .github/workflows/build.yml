@@ -47,8 +47,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path $PKG_DIR
           Copy-Item target/release/volc_auc_batch_client.exe $PKG_DIR/
           Copy-Item target/release/doubao-transcriber.exe $PKG_DIR/
-          Copy-Item USAGE.md $PKG_DIR/
-          Copy-Item CHANGELOG.md $PKG_DIR/
+          Copy-Item USAGE.md $PKG_DIR/使用手册.txt
+          Copy-Item CHANGELOG.md $PKG_DIR/更新说明.txt
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
@@ -89,8 +89,8 @@ jobs:
           mkdir -p "$PKG_DIR"
           cp target/release/volc_auc_batch_client "$PKG_DIR/"
           cp target/release/doubao-transcriber "$PKG_DIR/"
-          cp USAGE.md "$PKG_DIR/"
-          cp CHANGELOG.md "$PKG_DIR/"
+          cp USAGE.md "$PKG_DIR/使用手册.txt"
+          cp CHANGELOG.md "$PKG_DIR/更新说明.txt"
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
