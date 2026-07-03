@@ -41,22 +41,17 @@ jobs:
       - name: 打包发布目录
         shell: pwsh
         run: |
-          $VERSION = "${{ github.ref_name }}"
-          if ($VERSION -notmatch '^v') { $VERSION = "latest" }
-          $PKG_DIR = "AnyModelAudioToText-$VERSION-windows"
-          New-Item -ItemType Directory -Force -Path $PKG_DIR
-          Copy-Item target/release/volc_auc_batch_client.exe $PKG_DIR/
-          Copy-Item target/release/doubao-transcriber.exe $PKG_DIR/
-          Copy-Item USAGE.md $PKG_DIR/使用手册.txt
-          Copy-Item CHANGELOG.md $PKG_DIR/更新说明.txt
+          New-Item -ItemType Directory -Force -Path pkg | Out-Null
+          Copy-Item target/release/volc_auc_batch_client.exe pkg/
+          Copy-Item target/release/doubao-transcriber.exe pkg/
+          Copy-Item USAGE.md pkg/使用手册.txt
+          Copy-Item CHANGELOG.md pkg/更新说明.txt
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
           name: windows-dist
-          # 上传目录内容而非目录本身，避免 zip 内双层嵌套
-          path: AnyModelAudioToText-*-windows/*
-          include-hidden-files: false
+          path: pkg/*
 
   # ── macOS (ARM64) ──
   macos:
@@ -83,20 +78,17 @@ jobs:
 
       - name: 打包发布目录
         run: |
-          VERSION="${GITHUB_REF_NAME}"
-          [[ "$VERSION" != v* ]] && VERSION="latest"
-          PKG_DIR="AnyModelAudioToText-${VERSION}-macos-arm64"
-          mkdir -p "$PKG_DIR"
-          cp target/release/volc_auc_batch_client "$PKG_DIR/"
-          cp target/release/doubao-transcriber "$PKG_DIR/"
-          cp USAGE.md "$PKG_DIR/使用手册.txt"
-          cp CHANGELOG.md "$PKG_DIR/更新说明.txt"
+          mkdir -p pkg
+          cp target/release/volc_auc_batch_client pkg/
+          cp target/release/doubao-transcriber pkg/
+          cp USAGE.md "pkg/使用手册.txt"
+          cp CHANGELOG.md "pkg/更新说明.txt"
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
           name: macos-dist
-          path: AnyModelAudioToText-*-macos-arm64/*
+          path: pkg/*
           include-hidden-files: false
 
   # ── 创建 GitHub Release（仅 tag 推送时）──
@@ -120,7 +112,9 @@ jobs:
               macos-dist)   newname="AnyModelAudioToText-${VERSION}-macos-arm64" ;;
               *)            continue ;;
             esac
-            mv "$dirname" "$newname"
+            mkdir -p "$newname"
+            mv "$dirname"/* "$newname"/ 2>/dev/null || true
+            rmdir "$dirname"
             zip -r "${newname}.zip" "$newname"
             echo "Created: ${newname}.zip ($(stat -c%s "${newname}.zip") bytes)"
           done
