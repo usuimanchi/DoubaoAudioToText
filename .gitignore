@@ -30,6 +30,10 @@ auc_bigmodel/
 # Temp / task tracking
 .tmp/
 
+# Claude Code
+.agents/
+skills-lock.json
+
 # Test artifacts
 test_audio/
 audio_sources/

@@ -375,7 +375,7 @@ pub async fn prepare_audio(
         if ext == "mp3" {
             convert_to_mp3(&input.source_path, &dst, &meta, &cfg.extra_bin_dirs).await?;
         } else {
-            convert_to_ogg(&input.source_path, &dst, &meta, &cfg.extra_bin_dirs).await?;
+            convert_to_ogg(&input.source_path, &dst, &meta, &cfg.extra_bin_dirs, cfg.reporter.as_ref()).await?;
         }
 
         let converted_meta = probe_audio(&dst, &cfg.extra_bin_dirs).await?;
@@ -391,7 +391,7 @@ pub async fn prepare_audio(
         if converted_meta.size_bytes > cfg.max_size_bytes
             || converted_meta.duration_secs > cfg.max_duration_secs as f64
         {
-            println!("   ⚠️  转换后仍超限，继续切分...");
+            cfg.reporter.warn("   ⚠️  转换后仍超限，继续切分...".to_string());
             return split_audio(&dst, cfg, &converted_meta, 0).await;
         }
 
@@ -486,7 +486,13 @@ pub fn normalize_format_and_codec(meta: &ProbeMeta) -> (String, String) {
 // 音频转换: → 16bit OGG (Opus)，尽量保持原始质量
 // ---------------------------------------------------------------------------
 
-pub async fn convert_to_ogg(src: &Path, dst: &Path, meta: &ProbeMeta, extra_bin_dirs: &[PathBuf]) -> Result<()> {
+pub async fn convert_to_ogg(
+    src: &Path,
+    dst: &Path,
+    meta: &ProbeMeta,
+    extra_bin_dirs: &[PathBuf],
+    reporter: &dyn ProgressReporter,
+) -> Result<()> {
     if let Some(parent) = dst.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -501,12 +507,14 @@ pub async fn convert_to_ogg(src: &Path, dst: &Path, meta: &ProbeMeta, extra_bin_
         48000
     };
 
-    println!("   🎛️  转换参数: {}Hz mono opus @ {}kbps（原始: {}Hz {}ch {}kbps）",
-             out_sample_rate,
-             per_channel_bitrate / 1000,
-             meta.sample_rate,
-             meta.channels,
-             meta.bitrate_bps / 1000);
+    reporter.log(format!(
+        "   🎛️  转换参数: {}Hz mono opus @ {}kbps（原始: {}Hz {}ch {}kbps）",
+        out_sample_rate,
+        per_channel_bitrate / 1000,
+        meta.sample_rate,
+        meta.channels,
+        meta.bitrate_bps / 1000
+    ));
 
     let ffmpeg_path = resolve_ffmpeg(extra_bin_dirs);
     let status = Command::new(ffmpeg_path)

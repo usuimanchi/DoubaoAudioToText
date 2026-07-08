@@ -53,7 +53,7 @@ jobs:
           name: windows-dist
           path: pkg/*
 
-  # ── macOS (ARM64) ──
+  # ── macOS (CLI: Universal, GUI: ARM64) ──
   macos:
     runs-on: macos-latest
     steps:
@@ -71,16 +71,24 @@ jobs:
         with:
           workspaces: "."
 
-      - name: 构建 CLI + GUI
+      - name: 构建 CLI（Universal）
         run: |
-          cargo build --release -p volc_auc_batch_client
-          cargo build --release -p doubao-transcriber
-
-      - name: 打包发布目录
-        run: |
+          cargo build --release -p volc_auc_batch_client --target aarch64-apple-darwin
+          cargo build --release -p volc_auc_batch_client --target x86_64-apple-darwin
           mkdir -p pkg
-          cp target/release/volc_auc_batch_client pkg/
-          cp target/release/doubao-transcriber pkg/
+          lipo -create \
+            target/aarch64-apple-darwin/release/volc_auc_batch_client \
+            target/x86_64-apple-darwin/release/volc_auc_batch_client \
+            -output pkg/volc_auc_batch_client
+          lipo -info pkg/volc_auc_batch_client
+
+      - name: 构建 GUI（ARM64 only）
+        run: |
+          cargo build --release -p doubao-transcriber --target aarch64-apple-darwin
+          cp target/aarch64-apple-darwin/release/doubao-transcriber pkg/
+
+      - name: 打包文档
+        run: |
           cp USAGE.md "pkg/使用手册.txt"
           cp CHANGELOG.md "pkg/更新说明.txt"
 
